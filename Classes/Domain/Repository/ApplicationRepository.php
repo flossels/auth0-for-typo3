@@ -44,7 +44,7 @@ class ApplicationRepository implements LoggerAwareInterface
             ->select('*')
             ->from(self::TABLE_NAME)
             ->execute()
-            ->fetchAll();
+            ->fetchAllAssociative();
     }
 
     public function remove(Application $application): void

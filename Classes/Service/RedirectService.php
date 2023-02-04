@@ -120,7 +120,7 @@ class RedirectService implements LoggerAwareInterface
                                         )
                                     )
                                     ->execute()
-                                    ->fetch();
+                                    ->fetchAssociative();
                                 if ($row) {
                                     $redirect_url[] = $this->pi_getPageLink($row['felogin_redirectPid']);
                                 }
@@ -148,7 +148,7 @@ class RedirectService implements LoggerAwareInterface
                                     )
                                 )
                                 ->execute()
-                                ->fetch();
+                                ->fetchAssociative();
 
                             if ($row) {
                                 $redirect_url[] = $this->pi_getPageLink($row['felogin_redirectPid']);
@@ -324,7 +324,7 @@ class RedirectService implements LoggerAwareInterface
                 $localDomains = $queryBuilder->select('domainName')
                     ->from('sys_domain')
                     ->execute()
-                    ->fetchAll();
+                    ->fetchAllAssociative();
 
                 if (is_array($localDomains)) {
                     foreach ($localDomains as $localDomain) {

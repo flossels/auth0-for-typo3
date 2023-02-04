@@ -63,16 +63,12 @@ class ApiUtility implements LoggerAwareInterface
     protected function setScope(array $scopes): void
     {
         if (!empty($scopes)) {
-            try {
-                $reflection = new \ReflectionClass(Scope::class);
-                $allowedScopes = $reflection->getConstants();
-                $targetScopes = $this->getTargetScopes($scopes, $allowedScopes);
+            $reflection = new \ReflectionClass(Scope::class);
+            $allowedScopes = $reflection->getConstants();
+            $targetScopes = $this->getTargetScopes($scopes, $allowedScopes);
 
-                if (!empty($targetScopes)) {
-                    $this->scope = implode(' ', $targetScopes);
-                }
-            } catch (\ReflectionException $exception) {
-                $this->logger->critical('Could not instantiate reflection class.');
+            if (!empty($targetScopes)) {
+                $this->scope = implode(' ', $targetScopes);
             }
         }
     }
@@ -93,9 +89,12 @@ class ApiUtility implements LoggerAwareInterface
         return $targetScopes;
     }
 
-    public function getApi(string $className, string ...$scopes): Management\GeneralManagementApi
+    public function getUserApi(string ...$scopes): Management\UserApi
     {
-        return $this->getManagement(...$scopes)->getApi($className);
+        $this->setScope($scopes);
+        $management = GeneralUtility::makeInstance(Management::class, $this->application, $this->scope);
+
+        return $management->getUserApi();
     }
 
     public function withContext(string $context): self
@@ -104,12 +103,5 @@ class ApiUtility implements LoggerAwareInterface
         $cloneObject->context = $context;
 
         return $cloneObject;
-    }
-
-    protected function getManagement(... $scopes): Management
-    {
-        $this->setScope($scopes);
-
-        return GeneralUtility::makeInstance(Management::class, $this->application, $this->scope);
     }
 }

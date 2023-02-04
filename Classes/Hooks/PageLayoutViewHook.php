@@ -86,7 +86,7 @@ class PageLayoutViewHook
                     $queryBuilder->createNamedParameter($applicationUid, \PDO::PARAM_INT)
                 )
             )->execute()
-            ->fetchColumn();
+            ->fetchOne();
     }
 
     protected function getFieldFromFlexForm(string $key, string $sheet = 'sDEF'): string

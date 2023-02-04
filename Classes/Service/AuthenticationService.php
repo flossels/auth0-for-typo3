@@ -15,7 +15,6 @@ namespace Bitmotion\Auth0\Service;
 
 use Auth0\SDK\Exception\ApiException;
 use Bitmotion\Auth0\Api\Auth0;
-use Bitmotion\Auth0\Api\Management\UserApi;
 use Bitmotion\Auth0\Domain\Model\Auth0\Management\User;
 use Bitmotion\Auth0\Domain\Transfer\EmAuth0Configuration;
 use Bitmotion\Auth0\ErrorCode;
@@ -215,7 +214,7 @@ class AuthenticationService extends BasicAuthenticationService
             ->from($this->tableName)
             ->where($queryBuilder->expr()->eq('auth0_user_id', $queryBuilder->createNamedParameter($auth0UserId)))
             ->execute()
-            ->fetchColumn();
+            ->fetchOne();
 
         $this->logger->debug(sprintf('Found application (ID: %s) for active Auth0 session.', $application));
         $this->application = (int)$application;
@@ -246,7 +245,7 @@ class AuthenticationService extends BasicAuthenticationService
     {
         try {
             $apiUtility = GeneralUtility::makeInstance(ApiUtility::class, $this->application);
-            $userApi = $apiUtility->getApi(UserApi::class, Scope::USER_READ);
+            $userApi = $apiUtility->getUserApi(Scope::USER_READ);
             $this->auth0User = $userApi->get($this->userInfo[$this->userIdentifier]);
         } catch (ApiNotEnabledException $exception) {
             // Do nothing since API is disabled

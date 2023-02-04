@@ -30,7 +30,6 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Core\Utility\PathUtility;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManager;
 use TYPO3\CMS\Extbase\Configuration\ConfigurationManagerInterface;
-use TYPO3\CMS\Extbase\Object\ObjectManager;
 use TYPO3\CMS\Fluid\View\StandaloneView;
 
 class Auth0Provider implements LoginProviderInterface, LoggerAwareInterface
@@ -70,7 +69,7 @@ class Auth0Provider implements LoginProviderInterface, LoggerAwareInterface
 
     public function __construct()
     {
-        $configurationManager = GeneralUtility::makeInstance(ObjectManager::class)->get(ConfigurationManager::class);
+        $configurationManager = GeneralUtility::makeInstance(ConfigurationManager::class);
         $this->frameworkConfiguration = $configurationManager->getConfiguration(ConfigurationManagerInterface::CONFIGURATION_TYPE_FRAMEWORK, 'auth0');
     }
 

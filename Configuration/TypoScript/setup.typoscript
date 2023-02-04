@@ -21,7 +21,6 @@ plugin.tx_auth0 {
     settings {
         frontend {
             login {
-                // TODO: Check if this is used
                 additionalAuthorizeParameters {
                     # key = value
                     # Example: login_hint = 'You will log in to our shop system.'

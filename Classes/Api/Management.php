@@ -15,13 +15,11 @@ namespace Bitmotion\Auth0\Api;
 
 use Auth0\SDK\API\Header\AuthorizationBearer;
 use Auth0\SDK\Exception\ApiException;
-use Bitmotion\Auth0\Api\Management\GeneralManagementApi;
+use Bitmotion\Auth0\Api\Management\UserApi;
 use Bitmotion\Auth0\Domain\Model\Auth0\Api\Client;
 use Bitmotion\Auth0\Domain\Repository\ApplicationRepository;
 use Bitmotion\Auth0\Exception\ApiNotEnabledException;
-use Bitmotion\Auth0\Exception\IllegalClassNameException;
 use Bitmotion\Auth0\Exception\InvalidApplicationException;
-use Bitmotion\Auth0\Exception\UnknownPropertyException;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\Package\Exception;
@@ -117,19 +115,9 @@ class Management implements LoggerAwareInterface
         $this->setClient(array_merge($this->guzzleOptions, $guzzleOptions));
     }
 
-    public function getApi(string $className): GeneralManagementApi
+    public function getUserApi(): UserApi
     {
-        if (strpos($className, 'Bitmotion\\Auth0\\Api\\Management') !== 0) {
-            throw new IllegalClassNameException(sprintf('It is not allowed to instantiate class %s.', $className), 1605878552);
-        }
-
-        $apiClass = $this->extractApiClass($className);
-
-        if (!property_exists($this, $apiClass)) {
-            throw new UnknownPropertyException(sprintf('Class %s has no property %s', self::class, $apiClass), 1605878741);
-        }
-
-        return $this->$apiClass ?? ($this->$apiClass = GeneralUtility::makeInstance($className, $this->client));
+        return $this->userApi ?? ($this->userApi = GeneralUtility::makeInstance(UserApi::class, $this->client));
     }
 
     /**

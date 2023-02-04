@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Bitmotion\Auth0\Command;
 
-use Bitmotion\Auth0\Api\Management\UserApi;
 use Bitmotion\Auth0\Domain\Transfer\EmAuth0Configuration;
 use Bitmotion\Auth0\Scope;
 use Bitmotion\Auth0\Utility\ApiUtility;
@@ -148,7 +147,7 @@ class CleanUpCommand extends Command
             ->from($this->tableNames['users'])
             ->where($queryBuilder->expr()->neq('auth0_user_id', $queryBuilder->createNamedParameter('')))
             ->execute()
-            ->fetchAll();
+            ->fetchAllAssociative();
 
         return !empty($this->users);
     }
@@ -202,7 +201,7 @@ class CleanUpCommand extends Command
      */
     protected function updateUsers(): int
     {
-        $userApi = GeneralUtility::makeInstance(ApiUtility::class, $this->configuration->getBackendConnection())->getApi(UserApi::class, Scope::USER_READ);
+        $userApi = GeneralUtility::makeInstance(ApiUtility::class, $this->configuration->getBackendConnection())->getUserApi(Scope::USER_READ);
         $userCount = 0;
 
         foreach ($this->users as $user) {

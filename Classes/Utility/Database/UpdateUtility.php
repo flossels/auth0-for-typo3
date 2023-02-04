@@ -198,13 +198,8 @@ class UpdateUtility implements LoggerAwareInterface
 
         foreach ($roles as $role) {
             if (isset($groupMapping[$role])) {
-                // TODO: Remove first and condition ($groupMapping[$role] === 'admin') with next major release)
-                if ($this->tableName === 'be_users' && $groupMapping[$role] === 'admin') {
-                    $isBeAdmin = true;
-                } else {
-                    $this->logger->notice(sprintf('Assign group "%s" to user.', $groupMapping[$role]));
-                    $groupsToAssign = array_merge($groupsToAssign, $groupMapping[$role]);
-                }
+                $this->logger->notice(sprintf('Assign group "%s" to user.', $groupMapping[$role]));
+                $groupsToAssign = array_merge($groupsToAssign, $groupMapping[$role]);
                 $shouldUpdate = true;
             } elseif (!empty($this->yamlConfiguration['roles']['beAdmin']) && $role === $this->yamlConfiguration['roles']['beAdmin']) {
                 $isBeAdmin = true;

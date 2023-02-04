@@ -13,7 +13,6 @@ declare(strict_types=1);
 
 namespace Bitmotion\Auth0\Middleware;
 
-use Bitmotion\Auth0\Api\Management\UserApi;
 use Bitmotion\Auth0\Domain\Repository\ApplicationRepository;
 use Bitmotion\Auth0\Domain\Transfer\EmAuth0Configuration;
 use Bitmotion\Auth0\ErrorCode;
@@ -174,7 +173,7 @@ class CallbackMiddleware implements MiddlewareInterface
         $application = BackendUtility::getRecord(ApplicationRepository::TABLE_NAME, $application, 'api, uid');
 
         if ((bool)$application['api'] === true) {
-            $userApi = GeneralUtility::makeInstance(ApiUtility::class, $application['uid'])->getApi(UserApi::class, Scope::USER_READ);
+            $userApi = GeneralUtility::makeInstance(ApiUtility::class, $application['uid'])->getUserApi(Scope::USER_READ);
             $user = $userApi->get($user[GeneralUtility::makeInstance(EmAuth0Configuration::class)->getUserIdentifier()]);
         }
 

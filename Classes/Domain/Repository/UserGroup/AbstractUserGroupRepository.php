@@ -19,7 +19,7 @@ abstract class AbstractUserGroupRepository
 {
     public const USER_GROUP_FIELD = 'auth0_user_group';
 
-    protected $tableName;
+    protected string $tableName = '';
 
     public function __construct()
     {
@@ -35,10 +35,6 @@ abstract class AbstractUserGroupRepository
 
     public function findAll(): array
     {
-        return $this->getQueryBuilder()
-            ->select('*')
-            ->from($this->tableName)
-            ->execute()
-            ->fetchAll();
+        return $this->getQueryBuilder()->select('*')->from($this->tableName)->execute()->fetchAllAssociative();
     }
 }

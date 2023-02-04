@@ -30,7 +30,7 @@ class BackendController extends ActionController
 
     protected $defaultViewObjectName = BackendTemplateView::class;
 
-    protected $applicationRepository;
+    protected ApplicationRepository $applicationRepository;
 
     public function __construct(ApplicationRepository $applicationRepository)
     {

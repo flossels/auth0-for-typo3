@@ -151,14 +151,11 @@ class Auth0Configuration implements SingletonInterface
         $differences = [];
 
         foreach ($newConfiguration as $key => $value) {
-            if (!isset($currentConfiguration[$key]) || $currentConfiguration[$key] !== $newConfiguration[$key]) {
-                if (!isset($newConfiguration[$key]) && isset($currentConfiguration[$key])) {
+            if (!isset($currentConfiguration[$key]) || $currentConfiguration[$key] !== $value) {
+                if (!isset($value) && isset($currentConfiguration[$key])) {
                     $differences[$key] = '__UNSET';
-                } elseif (isset($currentConfiguration[$key])
-                    && is_array($newConfiguration[$key])
-                    && is_array($currentConfiguration[$key])
-                ) {
-                    $differences[$key] = $this->findModified($currentConfiguration[$key], $newConfiguration[$key]);
+                } elseif (isset($currentConfiguration[$key]) && is_array($value) && is_array($currentConfiguration[$key])) {
+                    $differences[$key] = $this->findModified($currentConfiguration[$key], $value);
                 } else {
                     $differences[$key] = $value;
                 }
@@ -175,8 +172,8 @@ class Auth0Configuration implements SingletonInterface
         foreach ($currentConfiguration as $key => $value) {
             if (!isset($newConfiguration[$key])) {
                 $removed[$key] = '__UNSET';
-            } elseif (isset($currentConfiguration[$key]) && is_array($currentConfiguration[$key]) && is_array($newConfiguration[$key])) {
-                $removedInRecursion = $this->findRemoved($currentConfiguration[$key], $newConfiguration[$key]);
+            } elseif (isset($value) && is_array($value) && is_array($newConfiguration[$key])) {
+                $removedInRecursion = $this->findRemoved($value, $newConfiguration[$key]);
                 if (!empty($removedInRecursion)) {
                     $removed[$key] = $removedInRecursion;
                 }

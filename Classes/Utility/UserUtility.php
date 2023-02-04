@@ -14,7 +14,6 @@ declare(strict_types=1);
 namespace Bitmotion\Auth0\Utility;
 
 use Bitmotion\Auth0\Api\Auth0;
-use Bitmotion\Auth0\Api\Management\UserApi;
 use Bitmotion\Auth0\Domain\Model\Auth0\Management\User;
 use Bitmotion\Auth0\Domain\Repository\ApplicationRepository;
 use Bitmotion\Auth0\Domain\Repository\UserRepository;
@@ -177,7 +176,7 @@ class UserUtility implements SingletonInterface, LoggerAwareInterface
 
             if ((bool)$application['api'] === true) {
                 $apiUtility = GeneralUtility::makeInstance(ApiUtility::class, $application['uid']);
-                $userApi = $apiUtility->getApi(UserApi::class, Scope::USER_READ);
+                $userApi = $apiUtility->getUserApi(Scope::USER_READ);
                 $user = $userApi->get($user[$this->extensionConfiguration->getUserIdentifier()]);
             }
 
