@@ -36,10 +36,6 @@ jobs:
         typo3-version: [^9.5, ^10.4]
         include:
           - php-version: 7.4
-            typo3-version: 9.5.x-dev
-            experimental: true
-
-          - php-version: 7.4
             typo3-version: 10.4.x-dev
             experimental: true
 

@@ -18,22 +18,12 @@ call_user_func(
             $subtypes[] = 'authUserFE';
             $subtypes[] = 'getUserFE';
 
-            // Define some variables depending on TYPO3 Version
-            // TODO: Remove this when dropping TYPO3 9 LTS support.
-            if (version_compare(TYPO3_version, '10.0.0', '>=')) {
-                $extensionName = 'Auth0';
-                $controllerName = \Bitmotion\Auth0\Controller\LoginController::class;
-            } else {
-                $extensionName = 'Bitmotion.Auth0';
-                $controllerName = 'Login';
-            }
-
             // Configure Auth0 plugin
             \TYPO3\CMS\Extbase\Utility\ExtensionUtility::configurePlugin(
-                $extensionName,
+                'Auth0',
                 'LoginForm',
-                [$controllerName => 'form, login, logout'],
-                [$controllerName => 'form, login, logout']
+                [\Bitmotion\Auth0\Controller\LoginController::class => 'form, login, logout'],
+                [\Bitmotion\Auth0\Controller\LoginController::class => 'form, login, logout']
             );
         }
 

@@ -20,7 +20,6 @@ use Bitmotion\Auth0\Domain\Repository\UserGroup\BackendUserGroupRepository;
 use Bitmotion\Auth0\Domain\Repository\UserGroup\FrontendUserGroupRepository;
 use Bitmotion\Auth0\Domain\Repository\UserRepository;
 use Bitmotion\Auth0\Domain\Transfer\EmAuth0Configuration;
-use Bitmotion\Auth0\Utility\ConfigurationUtility;
 use Bitmotion\Auth0\Utility\ParseFuncUtility;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
@@ -29,15 +28,11 @@ use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\Serializer;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Extbase\Configuration\Exception\InvalidConfigurationTypeException;
 
 class UpdateUtility implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
-    /**
-     * @deprecated Will be removed with next major release.
-     */
     const TYPO_SCRIPT_NODE_VALUE = '_typoScriptNodeValue';
 
     protected $tableName = '';
@@ -82,11 +77,7 @@ class UpdateUtility implements LoggerAwareInterface
 
     public function updateGroups(): void
     {
-        $groupMapping = array_merge(
-            $this->getGroupMappingFromDatabase(),
-            $this->getGroupMappingFromTypoScript()
-        );
-
+        $groupMapping = $this->getGroupMappingFromDatabase();
         $this->addDefaultGroup($groupMapping);
 
         if (empty($groupMapping)) {
@@ -113,22 +104,6 @@ class UpdateUtility implements LoggerAwareInterface
     {
         $mappingConfiguration = $this->translateConfiguration($this->yamlConfiguration['properties'][$this->tableName]);
 
-        try {
-            // Get mapping configuration
-            $mappingConfiguration = array_merge(
-                $mappingConfiguration,
-                ConfigurationUtility::getSetting('propertyMapping', $this->tableName)
-            );
-        } catch (InvalidConfigurationTypeException $exception) {
-            $this->logger->notice(
-                sprintf(
-                    '%d: %s - You can safely ignore this notice when migrated to YAML configuration.',
-                    $exception->getCode(),
-                    $exception->getMessage()
-                )
-            );
-        }
-
         if (empty($mappingConfiguration)) {
             $this->logger->error(sprintf('Cannot update user: No mapping configuration for %s found', $this->tableName));
 
@@ -138,9 +113,6 @@ class UpdateUtility implements LoggerAwareInterface
         $this->performUserUpdate($mappingConfiguration, $reactivateUser);
     }
 
-    /**
-     * @deprecated Will be removed with next major release.
-     */
     protected function translateConfiguration(array $configuration): array
     {
         $translations = [];
@@ -200,26 +172,6 @@ class UpdateUtility implements LoggerAwareInterface
         return null;
     }
 
-    /**
-     * @deprecated Will be removed with next major version.
-     */
-    protected function getGroupMappingFromTypoScript(): array
-    {
-        try {
-            return ConfigurationUtility::getSetting('roles', $this->tableName);
-        } catch (InvalidConfigurationTypeException $exception) {
-            $this->logger->notice(
-                sprintf(
-                    '%d: %s - You can safely ignore this notice when migrated to YAML configuration.',
-                    $exception->getCode(),
-                    $exception->getMessage()
-                )
-            );
-        }
-
-        return [];
-    }
-
     protected function addDefaultGroup(array &$groupMapping): void
     {
         $key = 'frontend';
@@ -241,19 +193,7 @@ class UpdateUtility implements LoggerAwareInterface
 
     protected function mapRoles(array $groupMapping, array &$groupsToAssign, bool &$isBeAdmin, bool &$shouldUpdate): void
     {
-        try {
-            try {
-                $rolesKey = ConfigurationUtility::getSetting('roles', 'key') ?? null;
-            } catch (InvalidConfigurationTypeException $exception) {
-                // Ignore TypoScript not included exception.
-            }
-
-            // TODO: Support dot syntax for roles; e.g. roles.application
-            $rolesKey = $rolesKey ?? $this->yamlConfiguration['roles']['key'] ?? 'roles';
-        } catch (InvalidConfigurationTypeException $exception) {
-            $rolesKey = 'roles';
-        }
-
+        $rolesKey = $rolesKey ?? $this->yamlConfiguration['roles']['key'] ?? 'roles';
         $roles = (array)($this->userFromIdToken ? $this->user[$rolesKey] : $this->user['app_metadata'][$rolesKey]) ?? [];
 
         foreach ($roles as $role) {
@@ -353,7 +293,7 @@ class UpdateUtility implements LoggerAwareInterface
 
     protected function mapUserData(array &$updates, array $mappingConfiguration): void
     {
-        $this->parseFuncUtility = $parseFuncUtility = GeneralUtility::makeInstance(ParseFuncUtility::class);
+        $this->parseFuncUtility = GeneralUtility::makeInstance(ParseFuncUtility::class);
         $value = false;
 
         foreach ($mappingConfiguration as $typo3FieldName => $auth0FieldName) {

@@ -5,12 +5,7 @@ if [[ "${TYPO3_VERSION}" == *"dev"* ]]; then
 fi
 
 composer req typo3/cms-core:"${TYPO3_VERSION}" typo3/cms-backend:"${TYPO3_VERSION}" typo3/cms-extbase:"${TYPO3_VERSION}" typo3/cms-extensionmanager:"${TYPO3_VERSION}" typo3/cms-fluid:"${TYPO3_VERSION}" typo3/cms-frontend:"${TYPO3_VERSION}"
-
-if [[ "${TYPO3_VERSION}" == *"9.5"* ]]; then
-  composer req typo3/testing-framework:^4.15
-else
-  composer req typo3/testing-framework
-fi
+composer req typo3/testing-framework
 
 # --------------------------------------------------------------------------- #
 # Write Fixture file

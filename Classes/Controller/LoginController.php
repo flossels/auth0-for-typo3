@@ -165,39 +165,26 @@ class LoginController extends ActionController implements LoggerAwareInterface
      */
     public function logoutAction(): void
     {
-        $application = GeneralUtility::makeInstance(ApplicationRepository::class)->findByUid($this->application, true);
+        $application = GeneralUtility::makeInstance(ApplicationRepository::class)->findByUid($this->application);
         $singleLogOut = isset($this->settings['softLogout']) ? !(bool)$this->settings['softLogout'] : $application->isSingleLogOut();
 
-        if ($singleLogOut === false || !$this->extensionConfiguration->isGenericCallback()) {
+        if ($singleLogOut === false) {
             $routingUtility = GeneralUtility::makeInstance(RoutingUtility::class);
             $routingUtility->addArgument('logintype', 'logout');
-
-            if (!$this->extensionConfiguration->isGenericCallback()) {
-                trigger_error('Using logout settings for frontend request is deprecated as there is a dedicated callback middleware.', E_USER_DEPRECATED);
-                $logoutSettings = $this->settings['frontend']['logout'] ?? [];
-                $routingUtility->setCallback((int)$logoutSettings['targetPageUid'], (int)$logoutSettings['targetPageType']);
-            }
 
             if (strpos($this->settings['redirectMode'], 'logout') !== false && (bool)$this->settings['redirectDisable'] === false) {
                 $routingUtility->addArgument('referrer', $this->addLogoutRedirect());
             }
 
             $returnUrl = $routingUtility->getUri();
-
-            if ($singleLogOut === false) {
-                $this->redirectToUri($returnUrl);
-            }
+            $this->redirectToUri($returnUrl);
         }
 
         $this->logger->notice('Proceed with single log out.');
         $auth0 = $this->getAuth0();
         $auth0->logout();
 
-        if ($this->extensionConfiguration->isGenericCallback()) {
-            $logoutUri = $auth0->getLogoutUri($this->getCallback('logout'), $application->getClientId());
-        } else {
-            $logoutUri = $auth0->getLogoutUri($returnUrl, $application->getClientId());
-        }
+        $logoutUri = $auth0->getLogoutUri($this->getCallback('logout'), $application->getClientId());
 
         $this->redirectToUri($logoutUri);
     }
@@ -211,25 +198,8 @@ class LoginController extends ActionController implements LoggerAwareInterface
         if ($this->auth0 instanceof Auth0) {
             return $this->auth0;
         }
-        if ($this->extensionConfiguration->isGenericCallback()) {
-            $callback = $this->getCallback('login');
-        } else {
-            trigger_error('Using callback settings for frontend request is deprecated as there is a dedicated callback middleware.', E_USER_DEPRECATED);
-            $uri = $GLOBALS['TYPO3_REQUEST']->getUri();
-            $referrer = sprintf('%s://%s%s', $uri->getScheme(), $uri->getHost(), $uri->getPath());
-            if ($this->settings['referrerAnchor']) {
-                $referrer .= '#' . $this->settings['referrerAnchor'];
-            }
 
-            $routingUtility = GeneralUtility::makeInstance(RoutingUtility::class);
-            $callbackSettings = $this->settings['frontend']['callback'] ?? [];
-            $callback = $routingUtility
-                ->addArgument('logintype', 'login')
-                ->addArgument('application', (int)$this->settings['application'])
-                ->addArgument('referrer', $referrer)
-                ->setCallback((int)$callbackSettings['targetPageUid'], (int)$callbackSettings['targetPageType'])
-                ->getUri();
-        }
+        $callback = $this->getCallback('login');
 
         return GeneralUtility::makeInstance(ApiUtility::class, $this->application)->getAuth0($callback);
     }

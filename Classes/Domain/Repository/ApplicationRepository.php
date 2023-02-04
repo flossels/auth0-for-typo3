@@ -19,7 +19,6 @@ use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
-use TYPO3\CMS\Extbase\Object\ObjectManager;
 use TYPO3\CMS\Extbase\Persistence\Generic\PersistenceManager;
 
 class ApplicationRepository implements LoggerAwareInterface
@@ -31,34 +30,11 @@ class ApplicationRepository implements LoggerAwareInterface
     /**
      * @throws InvalidApplicationException
      *
-     * @return Application|array
+     * @return Application
      */
-    public function findByUid(int $uid, bool $asObject = false)
+    public function findByUid(int $uid)
     {
-        if ($asObject === true) {
-            return GeneralUtility::makeInstance(ObjectManager::class)
-                                 ->get(PersistenceManager::class)
-                                 ->getObjectByIdentifier($uid, Application::class);
-        }
-        $queryBuilder = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable(self::TABLE_NAME);
-        $queryBuilder
-                ->select('*')
-                ->from('tx_auth0_domain_model_application')
-                ->where($queryBuilder->expr()->eq('uid', $queryBuilder->createNamedParameter($uid, \PDO::PARAM_INT)));
-
-        $this->logger->debug(
-            sprintf('[%s] Executed SELECT query: %s', 'tx_auth0_domain_model_application', $queryBuilder->getSQL())
-        );
-
-        $application = $queryBuilder->execute()->fetch();
-
-        trigger_error('Retrieving application as array is deprecated and will be removed in the next major version.', E_USER_DEPRECATED);
-
-        if (!empty($application)) {
-            return $application;
-        }
-
-        throw new InvalidApplicationException(sprintf('No Application found for given id %s', $uid), 1526046354);
+        return GeneralUtility::makeInstance(PersistenceManager::class)->getObjectByIdentifier($uid, Application::class);
     }
 
     public function findAll(): array
