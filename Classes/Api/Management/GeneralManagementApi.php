@@ -16,6 +16,7 @@ namespace Bitmotion\Auth0\Api\Management;
 use Auth0\SDK\Exception\ApiException;
 use Bitmotion\Auth0\Domain\Model\Auth0\Api\Client;
 use Bitmotion\Auth0\Domain\Model\Auth0\Api\Error;
+use Bitmotion\Auth0\Domain\Model\Auth0\Management\User;
 use Bitmotion\Auth0\Exception\UnexpectedResponseException;
 use GuzzleHttp\Psr7\Response;
 use Psr\Log\LoggerAwareInterface;
@@ -26,7 +27,6 @@ use Symfony\Component\Serializer\Normalizer\ArrayDenormalizer;
 use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
 use Symfony\Component\Serializer\Serializer;
 use TYPO3\CMS\Core\Core\Environment;
-use TYPO3\CMS\Extbase\Object\Exception;
 
 class GeneralManagementApi implements LoggerAwareInterface
 {
@@ -50,7 +50,7 @@ class GeneralManagementApi implements LoggerAwareInterface
         $this->objectNormalizer = $this->getObjectNormalizer();
     }
 
-    protected function getObjectNormalizer()
+    protected function getObjectNormalizer(): ObjectNormalizer
     {
         return new ObjectNormalizer(
             null,
@@ -66,7 +66,6 @@ class GeneralManagementApi implements LoggerAwareInterface
     /**
      * @return object|object[]
      * @throws ApiException
-     * @throws Exception
      * @throws UnexpectedResponseException
      */
     protected function mapResponse(Response $response, string $objectName = '', bool $returnRaw = false)
@@ -125,32 +124,6 @@ class GeneralManagementApi implements LoggerAwareInterface
         return $contents;
     }
 
-    protected function serialize(object $object, string $format = 'json', array $allowedAttributes = []): string
-    {
-        $options = [
-            ObjectNormalizer::SKIP_NULL_VALUES => true,
-        ];
-
-        $this->addArrayProperty($options, ObjectNormalizer::ATTRIBUTES, $allowedAttributes);
-
-        return $this->getSerializer()->serialize($object, $format, $options);
-    }
-
-    protected function normalize(object $object, $format = null, array $attributes = [], bool $negate = false)
-    {
-        $options = [
-            ObjectNormalizer::SKIP_NULL_VALUES => true,
-        ];
-
-        if ($negate === true) {
-            $this->addArrayProperty($options, ObjectNormalizer::IGNORED_ATTRIBUTES, $attributes);
-        } else {
-            $this->addArrayProperty($options, ObjectNormalizer::ATTRIBUTES, $attributes);
-        }
-
-        return $this->getSerializer()->normalize($object, $format, $options);
-    }
-
     protected function getSerializer(): Serializer
     {
         return new Serializer(
@@ -159,9 +132,6 @@ class GeneralManagementApi implements LoggerAwareInterface
         );
     }
 
-    /**
-     * @throws Exception
-     */
     private function getObjectName(Response $response, bool $returnRaw): string
     {
         $statusCode = $response->getStatusCode();
@@ -174,24 +144,7 @@ class GeneralManagementApi implements LoggerAwareInterface
             return '';
         }
 
-        return $this->getObjectNameByClassName();
-    }
-
-    /**
-     * @throws Exception
-     */
-    private function getObjectNameByClassName(): string
-    {
-        $className = get_called_class();
-        $parts = explode('\\', $className);
-        $modelName = rtrim(array_pop($parts), 'Api');
-        $modelClass = $parts[0] . '\\' . $parts[1] . '\\Domain\\Model\\Auth0\\Management\\' . $modelName;
-
-        if (class_exists($modelClass)) {
-            return $modelClass;
-        }
-
-        throw new Exception(sprintf('Class "%s" does not exist.', $modelClass), 1549388794);
+        return User::class;
     }
 
     /**
@@ -213,27 +166,6 @@ class GeneralManagementApi implements LoggerAwareInterface
     {
         if ($value !== '') {
             $data[$key] = $value;
-        }
-    }
-
-    protected function addArrayProperty(array &$data, string $key, array $value): void
-    {
-        if (!empty($value)) {
-            $data[$key] = $value;
-        }
-    }
-
-    protected function addIntegerProperty(array &$data, string $key, int $value): void
-    {
-        if ($value !== 0) {
-            $data[$key] = $value;
-        }
-    }
-
-    protected function addBooleanProperty(array &$data, string $key, $value): void
-    {
-        if ($value !== null) {
-            $data[$key] = (bool)$value;
         }
     }
 }
