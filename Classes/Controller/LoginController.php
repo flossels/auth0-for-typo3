@@ -23,7 +23,6 @@ use Bitmotion\Auth0\Factory\SessionFactory;
 use Bitmotion\Auth0\Middleware\CallbackMiddleware;
 use Bitmotion\Auth0\Service\RedirectService;
 use Bitmotion\Auth0\Utility\ApiUtility;
-use Bitmotion\Auth0\Utility\ConfigurationUtility;
 use Bitmotion\Auth0\Utility\ParametersUtility;
 use Bitmotion\Auth0\Utility\RoutingUtility;
 use Bitmotion\Auth0\Utility\TokenUtility;
@@ -63,10 +62,6 @@ class LoginController extends ActionController implements LoggerAwareInterface
      */
     public function initializeAction(): void
     {
-        if (!ConfigurationUtility::isLoaded()) {
-            throw new InvalidConfigurationTypeException('No TypoScript found.', 1547449321);
-        }
-
         if (!empty(GeneralUtility::_GET('error'))) {
             $this->error = htmlspecialchars((string)GeneralUtility::_GET('error'));
         }
