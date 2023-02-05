@@ -19,7 +19,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class AfterPackageActivation
 {
-    protected $excludedParameters = [
+    protected array $excludedParameters = [
         'code',
         'state',
         'error_description',

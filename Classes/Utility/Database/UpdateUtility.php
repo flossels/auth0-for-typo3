@@ -14,18 +14,16 @@ declare(strict_types=1);
 namespace Bitmotion\Auth0\Utility\Database;
 
 use Bitmotion\Auth0\Configuration\Auth0Configuration;
-use Bitmotion\Auth0\Domain\Model\Auth0\Management\User;
 use Bitmotion\Auth0\Domain\Repository\UserGroup\AbstractUserGroupRepository;
 use Bitmotion\Auth0\Domain\Repository\UserGroup\BackendUserGroupRepository;
 use Bitmotion\Auth0\Domain\Repository\UserGroup\FrontendUserGroupRepository;
 use Bitmotion\Auth0\Domain\Repository\UserRepository;
 use Bitmotion\Auth0\Domain\Transfer\EmAuth0Configuration;
 use Bitmotion\Auth0\Utility\ParseFuncUtility;
+use Doctrine\DBAL\DBALException;
+use Doctrine\DBAL\Driver\Exception;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
-use Symfony\Component\Serializer\NameConverter\CamelCaseToSnakeCaseNameConverter;
-use Symfony\Component\Serializer\Normalizer\ObjectNormalizer;
-use Symfony\Component\Serializer\Serializer;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
@@ -35,46 +33,30 @@ class UpdateUtility implements LoggerAwareInterface
 
     const TYPO_SCRIPT_NODE_VALUE = '_typoScriptNodeValue';
 
-    protected $tableName = '';
+    protected string $tableName = '';
 
-    protected $extensionConfiguration;
+    protected EmAuth0Configuration $extensionConfiguration;
 
-    protected $user = [];
+    protected array $user = [];
 
-    protected $userFromIdToken = true;
+    protected bool $userFromIdToken = true;
 
-    /**
-     * @var ParseFuncUtility
-     */
-    protected $parseFuncUtility;
+    protected ParseFuncUtility $parseFuncUtility;
 
     protected $yamlConfiguration = [];
 
-    public function __construct(string $tableName, $user)
+    public function __construct(string $tableName, array $user)
     {
         $this->tableName = $tableName;
         $this->extensionConfiguration = GeneralUtility::makeInstance(EmAuth0Configuration::class);
-
-        if ($user instanceof User) {
-            $user = $this->transformUser($user);
-        }
-
         $this->user = $user;
         $this->yamlConfiguration = GeneralUtility::makeInstance(Auth0Configuration::class)->load();
     }
 
-    private function transformUser(User $user): array
-    {
-        $this->userFromIdToken = false;
-
-        $normalizer = new ObjectNormalizer(null, new CamelCaseToSnakeCaseNameConverter());
-        $serializer = new Serializer([$normalizer]);
-        $user = $serializer->normalize($user, 'array');
-        $user[$this->extensionConfiguration->getUserIdentifier()] = $user['user_id'];
-
-        return $user;
-    }
-
+    /**
+     * @throws DBALException
+     * @throws Exception
+     */
     public function updateGroups(): void
     {
         $groupMapping = $this->getGroupMappingFromDatabase();
@@ -100,6 +82,9 @@ class UpdateUtility implements LoggerAwareInterface
         }
     }
 
+    /**
+     * @throws DBALException
+     */
     public function updateUser(bool $reactivateUser = false): void
     {
         $mappingConfiguration = $this->translateConfiguration($this->yamlConfiguration['properties'][$this->tableName]);
@@ -142,6 +127,10 @@ class UpdateUtility implements LoggerAwareInterface
         return $translations;
     }
 
+    /**
+     * @throws Exception
+     * @throws DBALException
+     */
     protected function getGroupMappingFromDatabase(): array
     {
         $groupMapping = [];
@@ -216,6 +205,9 @@ class UpdateUtility implements LoggerAwareInterface
         }
     }
 
+    /**
+     * @throws DBALException
+     */
     protected function performGroupUpdate(array $groupsToAssign, bool $isBeAdmin): void
     {
         $updates = [];
@@ -233,17 +225,20 @@ class UpdateUtility implements LoggerAwareInterface
 
         if (!empty($updates)) {
             $userRepository = GeneralUtility::makeInstance(UserRepository::class, $this->tableName);
-            $userRepository->updateUserByAuth0Id($updates, $this->user[$this->extensionConfiguration->getUserIdentifier()]);
+            $userRepository->updateUserByAuth0Id($updates, $this->user['user_id']);
         }
     }
 
+    /**
+     * @throws DBALException
+     */
     protected function performUserUpdate(array $mappingConfiguration, bool $reactivateUser): void
     {
         $this->logger->debug(
             sprintf(
                 '%s: Prepare update for Auth0 user "%s"',
                 $this->tableName,
-                $this->user[$this->extensionConfiguration->getUserIdentifier()]
+                $this->user['user_id']
             )
         );
 
@@ -259,7 +254,7 @@ class UpdateUtility implements LoggerAwareInterface
         }
 
         $this->addRestrictions($userRepository);
-        $userRepository->updateUserByAuth0Id($updates, $this->user[$this->extensionConfiguration->getUserIdentifier()]);
+        $userRepository->updateUserByAuth0Id($updates, $this->user['user_id']);
     }
 
     protected function addRestrictions(UserRepository &$userRepository): void

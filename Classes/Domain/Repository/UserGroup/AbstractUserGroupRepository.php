@@ -11,6 +11,8 @@
 
 namespace Bitmotion\Auth0\Domain\Repository\UserGroup;
 
+use Doctrine\DBAL\DBALException;
+use Doctrine\DBAL\Driver\Exception;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -33,6 +35,10 @@ abstract class AbstractUserGroupRepository
         return GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($this->tableName);
     }
 
+    /**
+     * @throws Exception
+     * @throws DBALException
+     */
     public function findAll(): array
     {
         return $this->getQueryBuilder()->select('*')->from($this->tableName)->execute()->fetchAllAssociative();

@@ -13,21 +13,22 @@ declare(strict_types=1);
 
 namespace Bitmotion\Auth0\Hooks;
 
+use Doctrine\DBAL\DBALException;
+use Doctrine\DBAL\Driver\Exception;
 use TYPO3\CMS\Core\Database\ConnectionPool;
+use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class PageLayoutViewHook
 {
-    /**
-     * @var string
-     */
-    protected $listType = '';
+    protected string $listType = '';
+
+    protected array $flexFormData = [];
 
     /**
-     * @var array
+     * @throws Exception
+     * @throws DBALException
      */
-    protected $flexFormData = [];
-
     public function getSummary(array $params): string
     {
         $this->listType = $params['row']['list_type'];
@@ -58,15 +59,15 @@ class PageLayoutViewHook
         return $header . $content;
     }
 
-    /**
-     * @todo Adapt this when dropping TYPO3 9 support.
-     * @return \TYPO3\CMS\Core\Localization\LanguageService|\TYPO3\CMS\Lang\LanguageService
-     */
-    protected function getLanguageService()
+    protected function getLanguageService(): LanguageService
     {
         return $GLOBALS['LANG'];
     }
 
+    /**
+     * @throws Exception
+     * @throws DBALException
+     */
     protected function getApplicationName(): string
     {
         $applicationUid = $this->getFieldFromFlexForm('settings.application');

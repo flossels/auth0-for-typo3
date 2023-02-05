@@ -14,11 +14,11 @@ declare(strict_types=1);
 namespace Bitmotion\Auth0\Domain\Repository;
 
 use Bitmotion\Auth0\Domain\Transfer\EmAuth0Configuration;
+use Doctrine\DBAL\DBALException;
+use Doctrine\DBAL\Driver\Exception;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\Database\ConnectionPool;
-use TYPO3\CMS\Core\Database\Query\Expression\ExpressionBuilder;
-use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Database\Query\Restriction\DeletedRestriction;
 use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -28,20 +28,11 @@ class UserRepository implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
-    /**
-     * @var QueryBuilder
-     */
     protected $queryBuilder;
 
-    /**
-     * @var ExpressionBuilder
-     */
     protected $expressionBuilder;
 
-    /**
-     * @var string
-     */
-    protected $tableName;
+    protected string $tableName;
 
     public function __construct(string $tableName)
     {
@@ -51,7 +42,9 @@ class UserRepository implements LoggerAwareInterface
     }
 
     /**
-     * Gets an user by given auth0 user ID.
+     * Gets a user by given auth0 user ID.
+     * @throws DBALException
+     * @throws Exception
      */
     public function getUserByAuth0Id(string $auth0UserId): ?array
     {
@@ -166,6 +159,7 @@ class UserRepository implements LoggerAwareInterface
 
     /**
      * Updates a backend or frontend user by given uid.
+     * @throws DBALException
      */
     public function updateUserByUid(array $sets, int $uid): void
     {
@@ -178,6 +172,7 @@ class UserRepository implements LoggerAwareInterface
 
     /**
      * Updates a backend or frontend user by given auth0_user_id.
+     * @throws DBALException
      */
     public function updateUserByAuth0Id(array $sets, string $auth0Id): void
     {
@@ -201,6 +196,7 @@ class UserRepository implements LoggerAwareInterface
 
     /**
      * Executes the update query.
+     * @throws DBALException
      */
     protected function updateUser(): void
     {
@@ -211,6 +207,7 @@ class UserRepository implements LoggerAwareInterface
 
     /**
      * Inserts a backend or frontend user by given value array.
+     * @throws DBALException
      */
     public function insertUser(array $values): void
     {

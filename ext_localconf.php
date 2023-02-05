@@ -3,12 +3,6 @@ defined('TYPO3_MODE') || die('Access denied.');
 
 call_user_func(
     function ($extensionKey) {
-        // Load libraries when TYPO3 is not in composer mode
-        // TODO: Use environment class when dropping TYPO3 v9 support.
-        if (!defined('TYPO3_COMPOSER_MODE') || !TYPO3_COMPOSER_MODE) {
-            require \TYPO3\CMS\Core\Utility\ExtensionManagementUtility::extPath($extensionKey) . 'Libraries/vendor/autoload.php';
-        }
-
         // Load extension configuration
         $configuration = new \Bitmotion\Auth0\Domain\Transfer\EmAuth0Configuration();
 

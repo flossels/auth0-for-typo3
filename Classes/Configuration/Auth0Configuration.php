@@ -31,9 +31,9 @@ class Auth0Configuration implements SingletonInterface
 
     const CONFIG_TYPE_APP = 'app_metadata';
 
-    protected $configPath;
+    protected string $configPath;
 
-    protected $filePath;
+    protected string $filePath;
 
     public function __construct(string $configPath = null)
     {

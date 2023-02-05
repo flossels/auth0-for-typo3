@@ -12,11 +12,13 @@
 namespace Bitmotion\Auth0\Controller;
 
 use Bitmotion\Auth0\Domain\Repository\ApplicationRepository;
+use TYPO3\CMS\Backend\Routing\Exception\RouteNotFoundException;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\Components\ButtonBar;
 use TYPO3\CMS\Backend\View\BackendTemplateView;
 use TYPO3\CMS\Core\Imaging\Icon;
 use TYPO3\CMS\Core\Localization\LanguageService;
+use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
 use TYPO3\CMS\Extbase\Mvc\View\ViewInterface;
 use TYPO3\CMS\Extbase\Mvc\Web\Routing\UriBuilder;
@@ -102,7 +104,7 @@ class BackendController extends ActionController
             ->setTitle($this->getTranslation('menu.button.overview'))
             ->setHref($this->getUriBuilder()->reset()->uriFor('list', [], 'Backend'))
             ->setIcon($this->view->getModuleTemplate()->getIconFactory()->getIcon('actions-viewmode-tiles', Icon::SIZE_SMALL));
-        $buttonBar->addButton($listButton, ButtonBar::BUTTON_POSITION_LEFT);
+        $buttonBar->addButton($listButton);
     }
 
     protected function addButton(string $label, string $actionName, string $controllerName, string $icon): void
@@ -117,6 +119,9 @@ class BackendController extends ActionController
         $buttonBar->addButton($linkButton, ButtonBar::BUTTON_POSITION_RIGHT);
     }
 
+    /**
+     * @throws RouteNotFoundException
+     */
     protected function getModuleUrl(bool $encoded = true, string $referenceType = BackendUriBuilder::ABSOLUTE_PATH): string
     {
         $backendUriBuilder = $this->objectManager->get(BackendUriBuilder::class);
@@ -135,7 +140,7 @@ class BackendController extends ActionController
 
     protected function getUriBuilder(): UriBuilder
     {
-        $uriBuilder = $this->objectManager->get(UriBuilder::class);
+        $uriBuilder = GeneralUtility::makeInstance(UriBuilder::class);
         $uriBuilder->setRequest($this->request);
 
         return $uriBuilder;

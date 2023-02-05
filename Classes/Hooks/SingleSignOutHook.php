@@ -24,7 +24,7 @@ class SingleSignOutHook implements SingletonInterface
 
     protected $environmentService;
 
-    protected $responsible = false;
+    protected bool $responsible = false;
 
     public function __construct()
     {

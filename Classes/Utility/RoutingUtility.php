@@ -22,15 +22,15 @@ class RoutingUtility implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
-    protected $targetPage = 0;
+    protected int $targetPage = 0;
 
-    protected $targetPageType = 0;
+    protected int $targetPageType = 0;
 
-    protected $arguments = [];
+    protected array $arguments = [];
 
-    protected $createAbsoluteUri = true;
+    protected bool $createAbsoluteUri = true;
 
-    protected $buildFrontendUri = true;
+    protected bool $buildFrontendUri = true;
 
     public function __construct()
     {

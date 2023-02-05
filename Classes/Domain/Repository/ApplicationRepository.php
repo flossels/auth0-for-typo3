@@ -14,7 +14,8 @@ declare(strict_types=1);
 namespace Bitmotion\Auth0\Domain\Repository;
 
 use Bitmotion\Auth0\Domain\Model\Application;
-use Bitmotion\Auth0\Exception\InvalidApplicationException;
+use Doctrine\DBAL\DBALException;
+use Doctrine\DBAL\Driver\Exception;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
 use TYPO3\CMS\Core\Database\ConnectionPool;
@@ -27,16 +28,15 @@ class ApplicationRepository implements LoggerAwareInterface
 
     const TABLE_NAME = 'tx_auth0_domain_model_application';
 
-    /**
-     * @throws InvalidApplicationException
-     *
-     * @return Application
-     */
-    public function findByUid(int $uid)
+    public function findByUid(int $uid): Application
     {
         return GeneralUtility::makeInstance(PersistenceManager::class)->getObjectByIdentifier($uid, Application::class);
     }
 
+    /**
+     * @throws DBALException
+     * @throws Exception
+     */
     public function findAll(): array
     {
         return GeneralUtility::makeInstance(ConnectionPool::class)
@@ -47,6 +47,9 @@ class ApplicationRepository implements LoggerAwareInterface
             ->fetchAllAssociative();
     }
 
+    /**
+     * @throws DBALException
+     */
     public function remove(Application $application): void
     {
         $qb = GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable(self::TABLE_NAME);

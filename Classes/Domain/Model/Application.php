@@ -18,55 +18,25 @@ use TYPO3\CMS\Extbase\DomainObject\AbstractEntity;
 
 class Application extends AbstractEntity
 {
-    /**
-     * @var string
-     */
-    protected $title = '';
+    protected string $title = '';
 
-    /**
-     * @var string
-     */
-    protected $id = '';
+    protected string $id = '';
 
-    /**
-     * @var string
-     */
-    protected $secret = '';
+    protected string $secret = '';
 
-    /**
-     * @var bool
-     */
-    protected $secretBase64Encoded = false;
+    protected bool $secretBase64Encoded = false;
 
-    /**
-     * @var string
-     */
-    protected $domain = '';
+    protected string $domain = '';
 
-    /**
-     * @var string
-     */
-    protected $audience = '';
+    protected string $audience = '';
 
-    /**
-     * @var bool
-     */
-    protected $singleLogOut = false;
+    protected bool $singleLogOut = false;
 
-    /**
-     * @var bool
-     */
-    protected $api = true;
+    protected bool $api = true;
 
-    /**
-     * @var string
-     */
-    protected $signatureAlgorithm = JwtConfiguration::ALG_RS256;
+    protected string $signatureAlgorithm = JwtConfiguration::ALG_RS256;
 
-    /**
-     * @var bool
-     */
-    protected $customDomain = false;
+    protected bool $customDomain = false;
 
     public function getTitle(): string
     {
@@ -108,7 +78,7 @@ class Application extends AbstractEntity
         $this->domain = $domain;
     }
 
-    public function getFullDomain()
+    public function getFullDomain(): string
     {
         return sprintf('https://%s', rtrim($this->domain, '/'));
     }
@@ -127,7 +97,7 @@ class Application extends AbstractEntity
         $this->audience = trim($audience, '/') . '/';
     }
 
-    public function getApiBasePath()
+    public function getApiBasePath(): string
     {
         return sprintf('/%s/', trim(parse_url($this->getAudience(true), PHP_URL_PATH), '/'));
     }

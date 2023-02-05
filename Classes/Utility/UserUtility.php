@@ -13,16 +13,13 @@ declare(strict_types=1);
 
 namespace Bitmotion\Auth0\Utility;
 
-use Bitmotion\Auth0\Api\Auth0;
-use Bitmotion\Auth0\Domain\Model\Auth0\Management\User;
-use Bitmotion\Auth0\Domain\Repository\ApplicationRepository;
 use Bitmotion\Auth0\Domain\Repository\UserRepository;
 use Bitmotion\Auth0\Domain\Transfer\EmAuth0Configuration;
-use Bitmotion\Auth0\Scope;
-use Bitmotion\Auth0\Utility\Database\UpdateUtility;
+use Doctrine\DBAL\DBALException;
+use Doctrine\DBAL\Driver\Exception;
+use GuzzleHttp\Utils;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
-use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Crypto\PasswordHashing\InvalidPasswordHashException;
 use TYPO3\CMS\Core\Crypto\PasswordHashing\PasswordHashFactory;
 use TYPO3\CMS\Core\Crypto\Random;
@@ -41,6 +38,10 @@ class UserUtility implements SingletonInterface, LoggerAwareInterface
         $this->extensionConfiguration = GeneralUtility::makeInstance(EmAuth0Configuration::class);
     }
 
+    /**
+     * @throws DBALException
+     * @throws Exception
+     */
     public function checkIfUserExists(string $tableName, string $auth0UserId): array
     {
         $userRepository = GeneralUtility::makeInstance(UserRepository::class, $tableName);
@@ -49,6 +50,10 @@ class UserUtility implements SingletonInterface, LoggerAwareInterface
         return $user ?? $this->findUserWithoutRestrictions($tableName, $auth0UserId);
     }
 
+    /**
+     * @throws Exception
+     * @throws DBALException
+     */
     protected function findUserWithoutRestrictions(string $tableName, string $auth0UserId): array
     {
         $this->logger->notice('Try to find user without restrictions.');
@@ -70,11 +75,10 @@ class UserUtility implements SingletonInterface, LoggerAwareInterface
 
     /**
      * @throws InvalidPasswordHashException
+     * @throws DBALException
      */
-    public function insertUser(string $tableName, $user): void
+    public function insertUser(string $tableName, array $user): void
     {
-        $user = $user instanceof User ? $this->transformAuth0User($user) : $user;
-
         switch ($tableName) {
             case 'fe_users':
                 $this->insertFeUser($tableName, $user);
@@ -87,18 +91,11 @@ class UserUtility implements SingletonInterface, LoggerAwareInterface
         }
     }
 
-    protected function transformAuth0User(User $user): array
-    {
-        return [
-            'email' => $user->getEmail(),
-            'user_metadata' => $user->getUserMetadata(),
-            $this->extensionConfiguration->getUserIdentifier() => $user->getUserId(),
-        ];
-    }
     /**
      * Inserts a new frontend user
      *
      * @throws InvalidPasswordHashException
+     * @throws DBALException
      */
     public function insertFeUser(string $tableName, array $user): void
     {
@@ -108,12 +105,12 @@ class UserUtility implements SingletonInterface, LoggerAwareInterface
         ArrayUtility::mergeRecursiveWithOverrule($values, [
             'pid' => $this->extensionConfiguration->getUserStoragePage(),
             'tstamp' => time(),
-            'username' => $user['email'] ?? $user[$userIdentifier],
+            'username' => $user['email'] ?? $user[$userIdentifier] ?? $user['user_id'],
             'password' => $this->getPassword(),
             'email' => $user['email'] ?? '',
             'crdate' => time(),
-            'auth0_user_id' => $user[$userIdentifier],
-            'auth0_metadata' => \GuzzleHttp\json_encode($user['user_metadata'] ?? ''),
+            'auth0_user_id' => $user[$userIdentifier] ?? $user['user_id'],
+            'auth0_metadata' => Utils::jsonEncode($user['user_metadata'] ?? ''),
         ]);
 
         GeneralUtility::makeInstance(UserRepository::class, $tableName)->insertUser($values);
@@ -123,6 +120,7 @@ class UserUtility implements SingletonInterface, LoggerAwareInterface
      * Inserts a new backend user
      *
      * @throws InvalidPasswordHashException
+     * @throws DBALException
      */
     public function insertBeUser(string $tableName, array $user): void
     {
@@ -167,34 +165,9 @@ class UserUtility implements SingletonInterface, LoggerAwareInterface
         return $saltFactory->getHashedPassword($password);
     }
 
-    public function updateUser(Auth0 $auth0, int $application): void
-    {
-        try {
-            $this->logger->notice('Try to update user.');
-            $user = $auth0->getUser();
-            $application = BackendUtility::getRecord(ApplicationRepository::TABLE_NAME, $application, 'api, uid');
-
-            if ((bool)$application['api'] === true) {
-                $apiUtility = GeneralUtility::makeInstance(ApiUtility::class, $application['uid']);
-                $userApi = $apiUtility->getUserApi(Scope::USER_READ);
-                $user = $userApi->get($user[$this->extensionConfiguration->getUserIdentifier()]);
-            }
-
-            // Update existing user on every login
-            $updateUtility = GeneralUtility::makeInstance(UpdateUtility::class, 'fe_users', $user);
-            $updateUtility->updateUser();
-            $updateUtility->updateGroups();
-        } catch (\Exception $exception) {
-            $this->logger->warning(
-                sprintf(
-                    'Updating user failed with following message: %s (%s)',
-                    $exception->getMessage(),
-                    $exception->getCode()
-                )
-            );
-        }
-    }
-
+    /**
+     * @throws DBALException
+     */
     public function setLastUsedApplication(string $auth0UserId, int $application): void
     {
         $userRepository = GeneralUtility::makeInstance(UserRepository::class, 'fe_users');

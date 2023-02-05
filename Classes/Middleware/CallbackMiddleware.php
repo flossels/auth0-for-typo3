@@ -13,25 +13,35 @@ declare(strict_types=1);
 
 namespace Bitmotion\Auth0\Middleware;
 
+use Auth0\SDK\Exception\ArgumentException;
+use Auth0\SDK\Exception\ConfigurationException;
+use Auth0\SDK\Exception\NetworkException;
 use Bitmotion\Auth0\Domain\Repository\ApplicationRepository;
 use Bitmotion\Auth0\Domain\Transfer\EmAuth0Configuration;
 use Bitmotion\Auth0\ErrorCode;
+use Bitmotion\Auth0\Exception\ApiNotEnabledException;
 use Bitmotion\Auth0\Exception\TokenException;
 use Bitmotion\Auth0\Exception\UnknownErrorCodeException;
-use Bitmotion\Auth0\Factory\SessionFactory;
 use Bitmotion\Auth0\LoginProvider\Auth0Provider;
 use Bitmotion\Auth0\Scope;
 use Bitmotion\Auth0\Service\RedirectService;
 use Bitmotion\Auth0\Utility\ApiUtility;
 use Bitmotion\Auth0\Utility\Database\UpdateUtility;
 use Bitmotion\Auth0\Utility\TokenUtility;
-use Lcobucci\JWT\Token;
+use Doctrine\DBAL\DBALException;
+use Doctrine\DBAL\Driver\Exception;
+use Lcobucci\JWT\Token\DataSet;
+use Lcobucci\JWT\Token\Plain;
+use Psr\Container\ContainerExceptionInterface;
+use Psr\Container\NotFoundExceptionInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
 use TYPO3\CMS\Core\Context\Context;
+use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
+use TYPO3\CMS\Core\Exception\SiteNotFoundException;
 use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Http\Response;
 use TYPO3\CMS\Core\Http\Uri;
@@ -45,6 +55,18 @@ class CallbackMiddleware implements MiddlewareInterface
 
     const BACKEND_URI = '%s/typo3/?loginProvider=%d&code=%s&state=%s';
 
+    /**
+     * @throws NotFoundExceptionInterface
+     * @throws DBALException
+     * @throws Exception
+     * @throws NetworkException
+     * @throws ContainerExceptionInterface
+     * @throws UnknownErrorCodeException
+     * @throws ConfigurationException
+     * @throws SiteNotFoundException
+     * @throws ArgumentException
+     * @throws ApiNotEnabledException
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         if (strpos($request->getUri()->getPath(), self::PATH) === false) {
@@ -64,12 +86,11 @@ class CallbackMiddleware implements MiddlewareInterface
             return new Response('php://temp', 400);
         }
 
-        if ($token->getClaim('environment') === TokenUtility::ENVIRONMENT_BACKEND) {
+        if ($token->claims()->get('environment') === TokenUtility::ENVIRONMENT_BACKEND) {
             return $this->handleBackendCallback($request, $tokenUtility);
         }
 
-        // Perform frontend callback as environment can only be 'BE' or 'FE'
-        return $this->handleFrontendCallback($request, $token);
+        return $this->handleFrontendCallback($token);
     }
 
     protected function handleBackendCallback(ServerRequestInterface $request, TokenUtility $tokenUtility): RedirectResponse
@@ -96,48 +117,61 @@ class CallbackMiddleware implements MiddlewareInterface
         return new RedirectResponse($redirectUri, 302);
     }
 
-    protected function handleFrontendCallback(ServerRequestInterface $request, Token $token): RedirectResponse
+    /**
+     * @throws DBALException
+     * @throws Exception
+     * @throws ContainerExceptionInterface
+     * @throws ConfigurationException
+     * @throws ApiNotEnabledException
+     * @throws NotFoundExceptionInterface
+     * @throws NetworkException
+     * @throws UnknownErrorCodeException
+     * @throws SiteNotFoundException
+     * @throws ArgumentException
+     */
+    protected function handleFrontendCallback(Plain $token): RedirectResponse
     {
         $errorCode = (string)GeneralUtility::_GET('error');
+        $claims = $token->claims();
 
         if (!empty($errorCode)) {
-            return $this->enrichReferrerByErrorCode($errorCode, $token);
+            return $this->enrichReferrerByErrorCode($errorCode, $claims);
         }
 
-        $referrer = $token->getClaim('referrer');
+        $referrer = $claims->get('referrer');
 
-        if ($this->isUserLoggedIn($request)) {
+        if ($this->isUserLoggedIn()) {
             $loginType = GeneralUtility::_GET('logintype');
-            $application = $token->getClaim('application');
-            $userInfo = (new SessionFactory())->getSessionStoreForApplication($application, SessionFactory::SESSION_PREFIX_FRONTEND)->getUserInfo();
+            $application = $claims->get('application');
+            $userInfo = GeneralUtility::makeInstance(ApiUtility::class, $application)->getAuth0()->getUser();
 
             // Redirect when user just logged in (and update him)
             if ($loginType === 'login' && !empty($userInfo)) {
                 $this->updateTypo3User($application, $userInfo);
 
-                if ((bool)$token->getClaim('redirectDisable') === false) {
+                if ((bool)$claims->get('redirectDisable') === false) {
                     $allowedMethods = ['groupLogin', 'userLogin', 'login', 'getpost', 'referrer'];
-                    $this->performRedirectFromPluginConfiguration($token, $allowedMethods, $referrer);
+                    $this->performRedirectFromPluginConfiguration($claims, $allowedMethods, $referrer);
                 } else {
                     return new RedirectResponse($referrer);
                 }
             } elseif ($loginType === 'logout') {
                 // User was logged out prior to this method. That's why there is no valid TYPO3 frontend user anymore.
-                $this->performRedirectFromPluginConfiguration($token, ['logout', 'referrer'], $referrer);
+                $this->performRedirectFromPluginConfiguration($claims, ['logout', 'referrer'], $referrer);
             }
         }
 
-        // Redirect back to logout page if no redirect was executed before
+        // Redirect back to log out page if no redirect was executed before
         return new RedirectResponse($referrer);
     }
 
     /**
      * @throws UnknownErrorCodeException
      */
-    protected function enrichReferrerByErrorCode(string $errorCode, Token $token): RedirectResponse
+    protected function enrichReferrerByErrorCode(string $errorCode, DataSet $claims): RedirectResponse
     {
         if (in_array($errorCode, (new \ReflectionClass(ErrorCode::class))->getConstants())) {
-            $referrer = new Uri($token->getClaim('referrer'));
+            $referrer = new Uri($claims->get('referrer'));
 
             $errorQuery = sprintf(
                 'error=%s&error_description=%s',
@@ -153,20 +187,25 @@ class CallbackMiddleware implements MiddlewareInterface
         throw new UnknownErrorCodeException(sprintf('Error %s is unknown.', $errorCode), 1586000737);
     }
 
-    protected function isUserLoggedIn(ServerRequestInterface $request): bool
+    protected function isUserLoggedIn(): bool
     {
-        try {
-            // TODO: Get rid of TSFE when dropping TYPO3 v9 support
-            // This is necessary as group data is not fetched to this time
-            ($request->getAttribute('frontend.user') ?? $GLOBALS['TSFE']->fe_user)->fetchGroupData();
-            $context = GeneralUtility::makeInstance(Context::class);
+        $context = GeneralUtility::makeInstance(Context::class);
 
+        try {
             return (bool)$context->getPropertyFromAspect('frontend.user', 'isLoggedIn');
-        } catch (\Exception $exception) {
+        } catch (AspectNotFoundException $exception) {
             return false;
         }
     }
 
+    /**
+     * @throws ArgumentException
+     * @throws Exception
+     * @throws DBALException
+     * @throws NetworkException
+     * @throws ApiNotEnabledException
+     * @throws ConfigurationException
+     */
     protected function updateTypo3User(int $application, array $user): void
     {
         // Get user
@@ -183,15 +222,22 @@ class CallbackMiddleware implements MiddlewareInterface
         $updateUtility->updateGroups();
     }
 
-    protected function performRedirectFromPluginConfiguration(Token $token, array $allowedMethods, ?string $referrer = null): void
+    /**
+     * @throws NotFoundExceptionInterface
+     * @throws SiteNotFoundException
+     * @throws Exception
+     * @throws DBALException
+     * @throws ContainerExceptionInterface
+     */
+    protected function performRedirectFromPluginConfiguration(DataSet $claims, array $allowedMethods, ?string $referrer = null): void
     {
         $redirectService = new RedirectService([
             'redirectDisable' => false,
-            'redirectMode' => $token->getClaim('redirectMode'),
-            'redirectFirstMethod' => $token->getClaim('redirectFirstMethod'),
-            'redirectPageLogin' => $token->getClaim('redirectPageLogin'),
-            'redirectPageLoginError' => $token->getClaim('redirectPageLoginError'),
-            'redirectPageLogout' => $token->getClaim('redirectPageLogout')
+            'redirectMode' => $claims->get('redirectMode'),
+            'redirectFirstMethod' => $claims->get('redirectFirstMethod'),
+            'redirectPageLogin' => $claims->get('redirectPageLogin'),
+            'redirectPageLoginError' => $claims->get('redirectPageLoginError'),
+            'redirectPageLogout' => $claims->get('redirectPageLogout')
         ]);
 
         $redirectService->setReferrer($referrer);

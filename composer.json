@@ -33,10 +33,7 @@
     "typo3/cms-fluid": "^10.4.14 || ^11.5.0",
     "typo3/cms-frontend": "^10.4.14 || ^11.5.0",
     "auth0/auth0-php": "^8.2",
-    "symfony/serializer": "^4.4 || ^5.4",
-    "symfony/property-access": "^4.4 || ^5.4",
-    "symfony/property-info": "^4.4 || ^5.4",
-    "symfony/http-foundation": "^4.4 || ^5.4",
+    "lcobucci/jwt": "^4.3",
     "ext-pdo": "*",
     "ext-json": "*"
   },

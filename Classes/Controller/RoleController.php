@@ -16,11 +16,17 @@ use Bitmotion\Auth0\Domain\Repository\UserGroup\BackendUserGroupRepository;
 use Bitmotion\Auth0\Domain\Repository\UserGroup\FrontendUserGroupRepository;
 use Bitmotion\Auth0\Domain\Transfer\EmAuth0Configuration;
 use Bitmotion\Auth0\Factory\ConfigurationFactory;
+use Doctrine\DBAL\DBALException;
+use Doctrine\DBAL\Driver\Exception;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Exception\StopActionException;
 
 class RoleController extends BackendController
 {
+    /**
+     * @throws DBALException
+     * @throws Exception
+     */
     public function listAction(): void
     {
         $this->view->assignMultiple([
