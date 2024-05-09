@@ -53,7 +53,6 @@ class ApplicationFactory
             $managementToken = $result['access_token'];
         }
 
-        // TODO: If management API is disabled audience needs to be empty - authorization is broken atm
         $sdkConfiguration = new SdkConfiguration([
             'audience' => [$application->getAudience(true)],
             'clientId' => $application->getClientId(),
