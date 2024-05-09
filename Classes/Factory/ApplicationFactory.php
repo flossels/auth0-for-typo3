@@ -46,7 +46,7 @@ class ApplicationFactory
                     'grant_type' => 'client_credentials',
                     'client_id' => $application->getClientId(),
                     'client_secret' => $application->getClientSecret(),
-                    'audience' => $application->getAudience(),
+                    'audience' => $application->getAudience(true),
                 ], ]);
 
             $result = json_decode($response->getBody()->getContents(), true);
