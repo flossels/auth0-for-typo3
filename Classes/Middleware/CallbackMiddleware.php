@@ -76,6 +76,7 @@ class CallbackMiddleware implements MiddlewareInterface
         if ($dataSet->get('environment') === TokenUtility::ENVIRONMENT_BACKEND) {
             return $this->handleBackendCallback($request, $tokenUtility, $dataSet);
         }
+
         // Perform frontend callback as environment can only be 'BE' or 'FE'
         return $this->handleFrontendCallback($request, $dataSet);
     }
@@ -120,7 +121,7 @@ class CallbackMiddleware implements MiddlewareInterface
             return $this->enrichReferrerByErrorCode($errorCode, $tokenDataSet);
         }
 
-        if ($this->isUserLoggedIn($request)) {
+        if (!$this->isUserLoggedIn($request)) {
             $loginType = GeneralUtility::_GET('logintype');
             $application = $tokenDataSet->get('application');
             $auth0 = ApplicationFactory::build($application, ApplicationFactory::SESSION_PREFIX_FRONTEND);
