@@ -6,7 +6,7 @@
   "config": {
     "classmap-authoritative": true,
     "platform": {
-      "php": "7.4.0"
+      "php": "8.2.0"
     }
   }
 }

@@ -29,7 +29,6 @@ use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
-use TYPO3\CMS\Extbase\Mvc\Exception\StopActionException;
 
 class LoginController extends ActionController implements LoggerAwareInterface
 {
@@ -76,16 +75,16 @@ class LoginController extends ActionController implements LoggerAwareInterface
             'auth0Error' => $this->error,
             'auth0ErrorDescription' => $this->errorDescription,
         ]);
+
         return $this->htmlResponse();
     }
 
     /**
      * @param string|null $rawAdditionalAuthorizeParameters
      * @throws AspectNotFoundException
-     * @throws StopActionException
      * @throws ConfigurationException
      */
-    public function loginAction(?string $rawAdditionalAuthorizeParameters = null): void
+    public function loginAction(?string $rawAdditionalAuthorizeParameters = null): ResponseInterface
     {
         $context = GeneralUtility::makeInstance(Context::class);
         $userInfo = $this->auth0->configuration()->getSessionStorage()->get('user');
@@ -101,17 +100,17 @@ class LoginController extends ActionController implements LoggerAwareInterface
             $this->logger->notice('Try to login user.');
             // TODO: Support $additionalAuthorizeParameters to be passed and used
 
-            $this->redirectToUri($this->auth0->login($this->getCallback()));
+            return $this->redirectToUri($this->auth0->login($this->getCallback()));
         }
 
-        $this->redirect('form');
+        return $this->redirect('form');
     }
 
     /**
      * @throws ConfigurationException
      * @throws StopActionException
      */
-    public function logoutAction(): void
+    public function logoutAction(): ResponseInterface
     {
         $application = GeneralUtility::makeInstance(ApplicationRepository::class)->findByUid($this->application);
         $singleLogOut = isset($this->settings['softLogout']) ? !(bool)$this->settings['softLogout'] : $application->isSingleLogOut();
@@ -123,15 +122,15 @@ class LoginController extends ActionController implements LoggerAwareInterface
             if (strpos($this->settings['redirectMode'], 'logout') !== false && (bool)$this->settings['redirectDisable'] === false) {
                 $routingUtility->addArgument('referrer', $this->addLogoutRedirect());
             }
-            $this->redirectToUri($routingUtility->getUri());
+            return $this->redirectToUri($routingUtility->getUri());
         }
 
         $this->logger->notice('Proceed with single log out.');
 
         if ($application->isSingleLogOut() && $this->configuration->isSoftLogout()) {
-            $this->redirectToUri($this->getCallback('logout'));
+            return $this->redirectToUri($this->getCallback('logout'));
         } else {
-            $this->redirectToUri($this->auth0->logout($this->getCallback('logout')));
+            return $this->redirectToUri($this->auth0->logout($this->getCallback('logout')));
         }
     }
 
@@ -141,19 +140,19 @@ class LoginController extends ActionController implements LoggerAwareInterface
         $referrer = $GLOBALS['TYPO3_REQUEST']->getQueryParams()['referrer'] ?? sprintf('%s://%s%s', $uri->getScheme(), $uri->getHost(), $uri->getPath());
 
         //TODO: Check this functionality again. Auth0 documentation states that they remove everything anchor related to maintain OAuth2 specification
-        if ($this->settings['referrerAnchor']) {
+        if (isset($this->settings['referrerAnchor']) && !empty($this->settings['referrerAnchor'])) {
             $referrer .= '#' . $this->settings['referrerAnchor'];
         }
 
         $tokenUtility = GeneralUtility::makeInstance(TokenUtility::class);
         $tokenUtility->withPayload('application', $this->application);
         $tokenUtility->withPayload('referrer', $referrer);
-        $tokenUtility->withPayload('redirectMode', $this->settings['redirectMode']);
-        $tokenUtility->withPayload('redirectFirstMethod', $this->settings['redirectFirstMethod']);
-        $tokenUtility->withPayload('redirectPageLogin', $this->settings['redirectPageLogin']);
-        $tokenUtility->withPayload('redirectPageLoginError', $this->settings['redirectPageLoginError']);
-        $tokenUtility->withPayload('redirectPageLogout', $this->settings['redirectPageLogout']);
-        $tokenUtility->withPayload('redirectDisable', $this->settings['redirectDisable']);
+        $tokenUtility->withPayload('redirectMode', $this->settings['redirectMode'] ?? '');
+        $tokenUtility->withPayload('redirectFirstMethod', $this->settings['redirectFirstMethod'] ?? '');
+        $tokenUtility->withPayload('redirectPageLogin', $this->settings['redirectPageLogin'] ?? '');
+        $tokenUtility->withPayload('redirectPageLoginError', $this->settings['redirectPageLoginError'] ?? '');
+        $tokenUtility->withPayload('redirectPageLogout', $this->settings['redirectPageLogout'] ?? '');
+        $tokenUtility->withPayload('redirectDisable', $this->settings['redirectDisable'] ?? '');
 
         return sprintf(
             '%s%s?logintype=%s&%s=%s',

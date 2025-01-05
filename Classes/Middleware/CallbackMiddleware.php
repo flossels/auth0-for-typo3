@@ -173,7 +173,7 @@ class CallbackMiddleware implements MiddlewareInterface
     {
         try {
             // This is necessary as group data is not fetched to this time
-            $request->getAttribute('frontend.user')->fetchGroupData();
+            $request->getAttribute('frontend.user')->fetchGroupData($request);
             $context = GeneralUtility::makeInstance(Context::class);
 
             return (bool)$context->getPropertyFromAspect('frontend.user', 'isLoggedIn');
