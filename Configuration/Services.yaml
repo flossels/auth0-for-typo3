@@ -18,3 +18,10 @@ services:
       - name: event.listener
         identifier: auth0AfterPackageActivationEvent
         event: TYPO3\CMS\Core\Package\Event\AfterPackageActivationEvent
+
+  Leuchtfeuer\Auth0\EventListener\BeforeRequestTokenProcessed:
+    tags:
+      - name: event.listener
+        identifier: auth0
+        event: TYPO3\CMS\Core\Authentication\Event\BeforeRequestTokenProcessedEvent
+

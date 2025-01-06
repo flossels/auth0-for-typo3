@@ -35,6 +35,7 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use TYPO3\CMS\Backend\Utility\BackendUtility;
+use TYPO3\CMS\Core\Authentication\LoginType;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Http\RedirectResponse;
 use TYPO3\CMS\Core\Http\Response;
@@ -121,15 +122,14 @@ class CallbackMiddleware implements MiddlewareInterface
             return $this->enrichReferrerByErrorCode($errorCode, $tokenDataSet);
         }
 
-        if (!$this->isUserLoggedIn($request)) {
+        if ($this->isUserLoggedIn($request)) {
             $loginType = GeneralUtility::_GET('logintype');
             $application = $tokenDataSet->get('application');
             $auth0 = ApplicationFactory::build($application, ApplicationFactory::SESSION_PREFIX_FRONTEND);
-            $auth0->exchange(null, GeneralUtility::_GET('code'), GeneralUtility::_GET('state'));
             $userInfo = $auth0->getUser();
 
             // Redirect when user just logged in (and update him)
-            if ($loginType === 'login' && !empty($userInfo)) {
+            if ($loginType === LoginType::LOGIN && !empty($userInfo)) {
                 $this->updateTypo3User($application, $userInfo);
 
                 if ((bool)$tokenDataSet->get('redirectDisable') === false) {
@@ -138,7 +138,7 @@ class CallbackMiddleware implements MiddlewareInterface
                 } else {
                     return new RedirectResponse($tokenDataSet->get('referrer'));
                 }
-            } elseif ($loginType === 'logout') {
+            } elseif ($loginType === LoginType::LOGOUT) {
                 // User was logged out prior to this method. That's why there is no valid TYPO3 frontend user anymore.
                 $this->performRedirectFromPluginConfiguration($tokenDataSet, ['logout', 'referrer']);
             }

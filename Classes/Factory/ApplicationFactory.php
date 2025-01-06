@@ -53,18 +53,19 @@ class ApplicationFactory
             $managementToken = $result['access_token'];
         }
 
-        $sdkConfiguration = new SdkConfiguration([
-            'audience' => [$application->getAudience(true)],
-            'clientId' => $application->getClientId(),
-            'clientSecret' => $application->getClientSecret(),
-            'cookieSecret' => $GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'],
-            'domain' => $application->getDomain(),
-            'id_token_alg' => $application->getSignatureAlgorithm(),
-            'managementToken' => $managementToken ?? null,
-            'redirectUri' => GeneralUtility::getIndpEnv('TYPO3_REQUEST_HOST') . CallbackMiddleware::PATH,
-            'scope' => $scope,
-            'sessionStorageId' => sprintf('auth0_session_%s', $context),
-        ]);
+        $sdkConfiguration = new SdkConfiguration(
+            domain:           $application->getDomain(),
+            clientId:         $application->getClientId(),
+            redirectUri:      GeneralUtility::getIndpEnv('TYPO3_REQUEST_HOST') . CallbackMiddleware::PATH,
+            clientSecret:     $application->getClientSecret(),
+            audience:         [$application->getAudience(true)],
+            scope:            $scope,
+            tokenAlgorithm:   $application->getSignatureAlgorithm(),
+            sessionStorageId: mb_strtolower(sprintf('auth0_session_%s', $context)),
+            cookieSecret:     $GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'],
+            managementToken:  $managementToken ?? null,
+        );
+
         return new Auth0($sdkConfiguration);
     }
 }

@@ -25,6 +25,7 @@ use Leuchtfeuer\Auth0\Utility\TokenUtility;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
+use TYPO3\CMS\Core\Authentication\LoginType;
 use TYPO3\CMS\Core\Context\Context;
 use TYPO3\CMS\Core\Context\Exception\AspectNotFoundException;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
@@ -66,7 +67,7 @@ class LoginController extends ActionController implements LoggerAwareInterface
     {
         if (GeneralUtility::makeInstance(Context::class)->getPropertyFromAspect('frontend.user', 'isLoggedIn')) {
             // Get Auth0 user from session storage
-            $userInfo = $this->auth0->configuration()->getSessionStorage()->get('user');
+            $userInfo = $this->auth0->getUser();
         }
 
         $this->view->assignMultiple([
@@ -87,7 +88,7 @@ class LoginController extends ActionController implements LoggerAwareInterface
     public function loginAction(?string $rawAdditionalAuthorizeParameters = null): ResponseInterface
     {
         $context = GeneralUtility::makeInstance(Context::class);
-        $userInfo = $this->auth0->configuration()->getSessionStorage()->get('user');
+        $userInfo = $this->auth0->getUser();
 
         // Log in user to auth0 when there is neither a TYPO3 frontend user nor an Auth0 user
         if (!$context->getPropertyFromAspect('frontend.user', 'isLoggedIn') || empty($userInfo)) {
@@ -98,9 +99,8 @@ class LoginController extends ActionController implements LoggerAwareInterface
             }
 
             $this->logger->notice('Try to login user.');
-            // TODO: Support $additionalAuthorizeParameters to be passed and used
 
-            return $this->redirectToUri($this->auth0->login($this->getCallback()));
+            return $this->redirectToUri($this->auth0->login($this->getCallback(), $additionalAuthorizeParameters));
         }
 
         return $this->redirect('form');
@@ -117,9 +117,9 @@ class LoginController extends ActionController implements LoggerAwareInterface
 
         if ($singleLogOut === false) {
             $routingUtility = GeneralUtility::makeInstance(RoutingUtility::class);
-            $routingUtility->addArgument('logintype', 'logout');
+            $routingUtility->addArgument('logintype', LoginType::LOGOUT);
 
-            if (strpos($this->settings['redirectMode'], 'logout') !== false && (bool)$this->settings['redirectDisable'] === false) {
+            if (strpos($this->settings['redirectMode'], LoginType::LOGOUT) !== false && (bool)$this->settings['redirectDisable'] === false) {
                 $routingUtility->addArgument('referrer', $this->addLogoutRedirect());
             }
             return $this->redirectToUri($routingUtility->getUri());
@@ -128,13 +128,12 @@ class LoginController extends ActionController implements LoggerAwareInterface
         $this->logger->notice('Proceed with single log out.');
 
         if ($application->isSingleLogOut() && $this->configuration->isSoftLogout()) {
-            return $this->redirectToUri($this->getCallback('logout'));
-        } else {
-            return $this->redirectToUri($this->auth0->logout($this->getCallback('logout')));
+            return $this->redirectToUri($this->getCallback(LoginType::LOGOUT));
         }
+        return $this->redirectToUri($this->auth0->logout($this->getCallback(LoginType::LOGOUT)));
     }
 
-    protected function getCallback(string $loginType = 'login'): string
+    protected function getCallback(string $loginType = LoginType::LOGIN): string
     {
         $uri = $GLOBALS['TYPO3_REQUEST']->getUri();
         $referrer = $GLOBALS['TYPO3_REQUEST']->getQueryParams()['referrer'] ?? sprintf('%s://%s%s', $uri->getScheme(), $uri->getHost(), $uri->getPath());

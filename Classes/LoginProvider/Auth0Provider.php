@@ -142,7 +142,8 @@ class Auth0Provider implements LoginProviderInterface, LoggerAwareInterface, Sin
     protected function getUserInfo()
     {
         $this->setAuth0();
-        $userInfo = $this->auth0->configuration()->getSessionStorage()->get('user');
+        $userInfo = $this->auth0->getUser();
+
         if (empty($userInfo)) {
             try {
                 $this->logger->notice('Try to get user via Auth0 API');
