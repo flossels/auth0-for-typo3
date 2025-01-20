@@ -8,7 +8,7 @@ declare(strict_types=1);
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Utility;
@@ -22,9 +22,13 @@ class ParseFuncUtility implements SingletonInterface, LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
-    const NO_AUTH0_VALUE = 'rx63XX7Vq5aCXn4y';
+    public const NO_AUTH0_VALUE = 'rx63XX7Vq5aCXn4y';
 
-    public function updateWithoutParseFunc(string $configurationType, string $auth0FieldName, array $user)
+    /**
+     * @param array<string, mixed> $user
+     * @return mixed|string
+     */
+    public function updateWithoutParseFunc(string $configurationType, string $auth0FieldName, array $user): mixed
     {
         switch ($configurationType) {
             case Auth0Configuration::CONFIG_TYPE_ROOT:
@@ -32,25 +36,31 @@ class ParseFuncUtility implements SingletonInterface, LoggerAwareInterface
                 break;
 
             case Auth0Configuration::CONFIG_TYPE_USER:
-                $value = $this->getAuth0ValueRecursive($user[Auth0Configuration::CONFIG_TYPE_USER], explode('.', $auth0FieldName));
+                $value = $this->getAuth0ValueRecursive(
+                    $user[Auth0Configuration::CONFIG_TYPE_USER],
+                    explode('.', $auth0FieldName)
+                );
                 break;
 
             case Auth0Configuration::CONFIG_TYPE_APP:
-                $value = $this->getAuth0ValueRecursive($user[Auth0Configuration::CONFIG_TYPE_APP], explode('.', $auth0FieldName));
+                $value = $this->getAuth0ValueRecursive(
+                    $user[Auth0Configuration::CONFIG_TYPE_APP],
+                    explode('.', $auth0FieldName)
+                );
                 break;
 
             default:
-                $this->logger->warning(sprintf('Invalid configuration type "%s"', $configurationType));
+                $this->logger?->warning(sprintf('Invalid configuration type "%s"', $configurationType));
         }
 
         return $value ?? self::NO_AUTH0_VALUE;
     }
 
-    public function transformValue(string $processing, $value)
+    public function transformValue(string $processing, mixed $value): mixed
     {
         switch ($processing) {
             case 'strtotime':
-                $value = strtotime($value);
+                $value = strtotime((string)$value);
                 break;
 
             case 'bool':
@@ -59,16 +69,20 @@ class ParseFuncUtility implements SingletonInterface, LoggerAwareInterface
 
             case 'bool-negate':
             case 'negate-bool':
-                $value = (bool)$value ? 0 : 1;
+                $value = $value ? 0 : 1;
                 break;
 
             default:
-                $this->logger->notice(sprintf('"%s" is not a valid processing function', $processing));
+                $this->logger?->notice(sprintf('"%s" is not a valid processing function', $processing));
         }
 
         return $value;
     }
 
+    /**
+     * @param array<string, mixed> $user
+     * @param array<mixed> $properties
+     */
     protected function getAuth0ValueRecursive(array $user, array $properties): string
     {
         $property = array_shift($properties);
@@ -76,8 +90,8 @@ class ParseFuncUtility implements SingletonInterface, LoggerAwareInterface
         if (isset($user[$property])) {
             $value = $user[$property];
 
-            if (is_array($properties) && ($value instanceof \stdClass || (is_array($value) && !empty($value)))) {
-                return $this->getAuth0ValueRecursive($value, $properties);
+            if ($value instanceof \stdClass || (is_array($value) && $value !== [])) {
+                return $this->getAuth0ValueRecursive((array)$value, $properties);
             }
         }
 

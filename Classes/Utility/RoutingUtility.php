@@ -8,13 +8,15 @@ declare(strict_types=1);
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Utility;
 
+use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
+use TYPO3\CMS\Core\Routing\PageArguments;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Mvc\Web\Routing\UriBuilder;
 
@@ -22,40 +24,47 @@ class RoutingUtility implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
-    protected int $targetPage = 0;
+    protected ?int $targetPage = null;
 
     protected int $targetPageType = 0;
 
+    /**
+     * @var array<mixed>
+     */
     protected array $arguments = [];
 
     protected bool $createAbsoluteUri = true;
 
     protected bool $buildFrontendUri = true;
 
-    public function __construct()
-    {
-        $this->targetPage = (int)$GLOBALS['TSFE']->id;
+    public function __construct(
+        protected readonly ServerRequestInterface $request,
+        protected readonly UriBuilder $uriBuilder
+    ) {
+        /** @var PageArguments $pageArguments */
+        $pageArguments = $this->request->getAttribute('routing');
+        $this->targetPage = $pageArguments->getPageId();
     }
 
     public function getUri(): string
     {
-        $uriBuilder = GeneralUtility::makeInstance(UriBuilder::class);
-        $uriBuilder
+        if ($this->targetPage === null) {
+            return '';
+        }
+        $this->uriBuilder
             ->reset()
             ->setTargetPageUid($this->targetPage)
             ->setTargetPageType($this->targetPageType)
             ->setArguments($this->arguments);
 
-        if ($this->createAbsoluteUri) {
-            $uriBuilder->setCreateAbsoluteUri($this->createAbsoluteUri);
-        }
+        $this->uriBuilder->setCreateAbsoluteUri($this->createAbsoluteUri);
 
         if ($this->buildFrontendUri) {
-            $uri = $uriBuilder->buildFrontendUri();
-            $this->logger->notice(sprintf('Set URI to: %s', $uri));
+            $uri = $this->uriBuilder->buildFrontendUri();
+            $this->logger?->notice(sprintf('Set URI to: %s', $uri));
 
             // Base of site configuration might be "/" so we have to prepend the domain
-            if (strpos($uri, '/') === 0) {
+            if (str_starts_with($uri, '/')) {
                 $uri = GeneralUtility::getIndpEnv('TYPO3_SITE_URL') . ltrim($uri, '/');
             }
 
@@ -67,7 +76,7 @@ class RoutingUtility implements LoggerAwareInterface
 
     public function setTargetPage(int $targetPage): self
     {
-        $this->logger->debug(sprintf('[URI] Set target page to "%s"', $targetPage));
+        $this->logger?->debug(sprintf('[URI] Set target page to "%s"', $targetPage));
         $this->targetPage = $targetPage;
 
         return $this;
@@ -75,20 +84,23 @@ class RoutingUtility implements LoggerAwareInterface
 
     public function setTargetPageType(int $targetPageType): void
     {
-        $this->logger->debug(sprintf('[URI] Set target page type to "%s"', $targetPageType));
+        $this->logger?->debug(sprintf('[URI] Set target page type to "%s"', $targetPageType));
         $this->targetPageType = $targetPageType;
     }
 
-    public function addArgument(string $key, $value): self
+    public function addArgument(string $key, mixed $value): self
     {
         $this->arguments = array_merge_recursive($this->arguments, [$key => $value]);
 
         return $this;
     }
 
+    /**
+     * @param array<mixed> $arguments
+     */
     public function setArguments(array $arguments): self
     {
-        $this->logger->debug('[URI] Set arguments', $arguments);
+        $this->logger?->debug('[URI] Set arguments', $arguments);
         $this->arguments = $arguments;
 
         return $this;

@@ -8,12 +8,11 @@ declare(strict_types=1);
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Utility;
 
-use DateTimeImmutable;
 use Lcobucci\JWT\Configuration;
 use Lcobucci\JWT\Signer;
 use Lcobucci\JWT\Signer\Hmac;
@@ -21,7 +20,7 @@ use Lcobucci\JWT\Signer\Key;
 use Lcobucci\JWT\Signer\Key\InMemory;
 use Lcobucci\JWT\Signer\Rsa\Sha256;
 use Lcobucci\JWT\Token;
-use Lcobucci\JWT\Token\Plain;
+use Lcobucci\JWT\UnencryptedToken;
 use Lcobucci\JWT\Validation\Constraint;
 use Lcobucci\JWT\Validation\Constraint\IssuedBy;
 use Lcobucci\JWT\Validation\Constraint\PermittedFor;
@@ -31,30 +30,30 @@ use Leuchtfeuer\Auth0\Exception\TokenException;
 use Leuchtfeuer\Auth0\Middleware\CallbackMiddleware;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerAwareTrait;
-use TYPO3\CMS\Core\Site\SiteFinder;
 use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class TokenUtility implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
-    const KEY_TYPE_PRIVATE = 'private';
+    protected const KEY_TYPE_PRIVATE = 'private';
 
-    const KEY_TYPE_PUBLIC = 'public';
+    protected const KEY_TYPE_PUBLIC = 'public';
 
-    const ENVIRONMENT_FRONTEND = 'FE';
-
-    const ENVIRONMENT_BACKEND = 'BE';
+    public const ENVIRONMENT_BACKEND = 'BE';
 
     protected EmAuth0Configuration $configuration;
 
-    protected DateTimeImmutable $time;
+    protected \DateTimeImmutable $time;
 
     protected string $issuer = '';
 
+    /**
+     * @var array<mixed>
+     */
     protected array $payload = [];
 
-    protected ?Token $token;
+    protected ?Token $token = null;
 
     protected bool $verified = false;
 
@@ -63,7 +62,7 @@ class TokenUtility implements LoggerAwareInterface
     public function __construct()
     {
         $this->configuration = new EmAuth0Configuration();
-        $this->time = new DateTimeImmutable();
+        $this->time = new \DateTimeImmutable();
         $this->setIssuer();
         $this->config = Configuration::forAsymmetricSigner(
             $this->getSigner(),
@@ -78,23 +77,35 @@ class TokenUtility implements LoggerAwareInterface
      */
     private function getConstraints(): array
     {
-        $contraints[] = new IssuedBy($this->getIssuer());
+        $issuer = $this->getIssuer();
+        if ($issuer === '') {
+            throw new \RuntimeException('Issuer must not be empty');
+        }
+
+        $contraints[] = new IssuedBy($issuer);
         $contraints[] = new PermittedFor(CallbackMiddleware::PATH);
         $contraints[] = new SignedWith($this->getSigner(), $this->getKey(self::KEY_TYPE_PUBLIC));
         return $contraints;
     }
 
-    public function buildToken(): Plain
+    public function buildToken(): UnencryptedToken
     {
+        $issuer = $this->getIssuer();
+        if ($issuer === '') {
+            throw new \RuntimeException('Issuer must not be empty');
+        }
+
         $builder = $this->config->builder();
-        $builder->issuedBy($this->getIssuer());
-        $builder->permittedFor(CallbackMiddleware::PATH);
-        $builder->issuedAt($this->time);
-        $builder->canOnlyBeUsedAfter($this->time);
-        $builder->expiresAt($this->time->modify('+1 hour'));
+        $builder = $builder->issuedBy($issuer)
+            ->permittedFor(CallbackMiddleware::PATH)
+            ->issuedAt($this->time)
+            ->canOnlyBeUsedAfter($this->time)
+            ->expiresAt($this->time->modify('+1 hour'));
 
         foreach ($this->payload as $key => $value) {
-            $builder->withClaim($key, $value);
+            if (is_string($key) && $key !== '') {
+                $builder = $builder->withClaim($key, $value);
+            }
         }
 
         return $builder->getToken($this->getSigner(), $this->getKey(self::KEY_TYPE_PRIVATE));
@@ -105,33 +116,37 @@ class TokenUtility implements LoggerAwareInterface
         return $this->issuer;
     }
 
+    /**
+     * @param array<mixed> $payload
+     */
     public function setPayload(array $payload): void
     {
         $this->payload = $payload;
     }
 
-    public function withPayload(string $key, $value): void
+    public function withPayload(string $key, mixed $value): void
     {
         $this->payload[$key] = $value;
     }
 
     public function verifyToken(string $token): bool
     {
-        if (empty($token)) {
-            $this->logger->warning('Given token is empty.');
+        if ($token === '' || $token === '0') {
+            $this->logger?->warning('Given token is empty.');
             return false;
         }
 
         try {
             $this->token = $this->config->parser()->parse($token);
         } catch (\Exception $exception) {
-            $this->logger->error($exception->getMessage());
-            $this->logger->warning('Could not parse token.');
+            /** @extensionScannerIgnoreLine */
+            $this->logger?->error($exception->getMessage());
+            $this->logger?->warning('Could not parse token.');
             return false;
         }
 
         if (!$this->config->validator()->validate($this->token, ...$this->config->validationConstraints())) {
-            $this->logger->warning('Token validation failed.');
+            $this->logger?->warning('Token validation failed.');
             return false;
         }
         $this->verified = true;
@@ -141,7 +156,7 @@ class TokenUtility implements LoggerAwareInterface
     /**
      * @throws TokenException
      */
-    public function getToken(): ?Token
+    public function getToken(): Token|UnencryptedToken|null
     {
         if (!$this->token instanceof Token) {
             throw new TokenException('No token defined.', 1585905908);
@@ -156,30 +171,6 @@ class TokenUtility implements LoggerAwareInterface
 
     public function setIssuer(): void
     {
-        if (!ModeUtility::isBackend()) {
-            try {
-                if (!isset($GLOBALS['TSFE'])) {
-                    $this->issuer = GeneralUtility::getIndpEnv('TYPO3_REQUEST_HOST');
-                    return;
-                }
-
-                $pageId = (int)$GLOBALS['TSFE']->id;
-                $base = GeneralUtility::makeInstance(SiteFinder::class)->getSiteByPageId($pageId)->getBase();
-
-                if ($base->getScheme() !== null) {
-                    $this->issuer = sprintf('%s://%s', $base->getScheme(), $base->getHost());
-                    return;
-                }
-
-                // Base of site configuration might be "/" so we have to retrieve the domain from the ENV
-                $this->issuer = GeneralUtility::getIndpEnv('TYPO3_REQUEST_HOST');
-            } catch (\Exception $exception) {
-                $this->issuer = GeneralUtility::getIndpEnv('TYPO3_REQUEST_HOST');
-            }
-
-            return;
-        }
-
         $this->issuer = GeneralUtility::getIndpEnv('TYPO3_REQUEST_HOST');
     }
 
@@ -202,7 +193,7 @@ class TokenUtility implements LoggerAwareInterface
                 return InMemory::plainText($this->configuration->getPublicKeyFile());
             }
 
-            $this->logger->warning(sprintf('Type %s is not allowed. Using encryption key.', $type));
+            $this->logger?->warning(sprintf('Type %s is not allowed. Using encryption key.', $type));
         }
 
         return InMemory::plainText($GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey']);

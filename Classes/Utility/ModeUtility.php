@@ -6,7 +6,7 @@
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Utility;
@@ -19,27 +19,36 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 class ModeUtility
 {
     public const BACKEND_MODE = 'BE';
-    public const FRONTEND_MODE = 'FE';
+    public const UNKONWN_MODE = 'UNKNOWN';
 
-    public static function isBackend(?string $mode=null): bool
+    public static function isBackend(?string $mode = null): bool
     {
         if (!$mode) {
             $mode = self::getModeFromRequest();
         }
 
-        return $mode && $mode === self::BACKEND_MODE;
+        return $mode === self::BACKEND_MODE;
     }
 
     public static function getModeFromRequest(): string
     {
-        return ($GLOBALS['TYPO3_REQUEST'] ?? null) instanceof ServerRequestInterface
-            && ApplicationType::fromRequest($GLOBALS['TYPO3_REQUEST'])->isFrontend()
-            ? self::FRONTEND_MODE
-            : self::BACKEND_MODE;
+        $request = self::getRequest();
+        return $request instanceof ServerRequestInterface && ApplicationType::fromRequest($request)->isBackend()
+            ? self::BACKEND_MODE
+            : self::UNKONWN_MODE;
     }
 
     public static function isTYPO3V12(): bool
     {
-        return version_compare(GeneralUtility::makeInstance(Typo3Version::class)->getVersion(), '12.0', '>=');
+        return version_compare(
+            GeneralUtility::makeInstance(Typo3Version::class)->getVersion(),
+            '12.0',
+            '>='
+        );
+    }
+
+    private static function getRequest(): ?ServerRequestInterface
+    {
+        return $GLOBALS['TYPO3_REQUEST'] ?? null;
     }
 }

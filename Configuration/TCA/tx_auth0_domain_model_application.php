@@ -9,11 +9,13 @@ return [
         'label' => 'title',
         'tstamp' => 'tstamp',
         'crdate' => 'crdate',
-        'cruser_id' => 'cruser_id',
         'versioningWS' => false,
         'delete' => 'deleted',
         'enablecolumns' => [
             'disabled' => 'hidden',
+        ],
+        'security' => [
+            'ignorePageTypeRestriction' => true,
         ],
         'searchFields' => 'title,id,domain,audience',
         'iconfile' => 'EXT:auth0/Resources/Public/Icons/auth0.svg',
@@ -44,21 +46,6 @@ return [
         ],
     ],
     'columns' => [
-        'hidden' => [
-            'exclude' => true,
-            'label' => 'LLL:EXT:core/Resources/Private/Language/locallang_general.xlf:LGL.enabled',
-            'config' => [
-                'type' => 'check',
-                'renderType' => 'checkboxToggle',
-                'items' => [
-                    [
-                        0 => '',
-                        1 => '',
-                        'invertStateDisplay' => true,
-                    ],
-                ],
-            ],
-        ],
         'single_log_out' => [
             'label' => 'LLL:EXT:auth0/Resources/Private/Language/Database.xlf:tx_auth0_domain_model_application.single_log_out',
             'config' => [
@@ -66,8 +53,7 @@ return [
                 'renderType' => 'checkboxToggle',
                 'items' => [
                     [
-                        0 => '',
-                        1 => '',
+                        'label' => ''
                     ],
                 ],
                 'default' => 1,
@@ -82,8 +68,7 @@ return [
                 'renderType' => 'checkboxToggle',
                 'items' => [
                     [
-                        0 => '',
-                        1 => '',
+                        'label' => '',
                     ],
                 ],
             ],
@@ -94,7 +79,8 @@ return [
             'config' => [
                 'type' => 'input',
                 'size' => 30,
-                'eval' => 'trim,required',
+                'eval' => 'trim',
+                'required' => true,
             ],
         ],
         'id' => [
@@ -103,7 +89,8 @@ return [
             'config' => [
                 'type' => 'input',
                 'size' => 30,
-                'eval' => 'trim,required',
+                'eval' => 'trim',
+                'required' => true,
             ],
         ],
         'secret' => [
@@ -112,7 +99,8 @@ return [
             'config' => [
                 'type' => 'input',
                 'size' => 30,
-                'eval' => 'trim,required',
+                'eval' => 'trim',
+                'required' => true,
             ],
         ],
         'domain' => [
@@ -121,7 +109,8 @@ return [
             'config' => [
                 'type' => 'input',
                 'size' => 30,
-                'eval' => 'trim,required',
+                'eval' => 'trim',
+                'required' => true,
             ],
         ],
         'audience' => [
@@ -131,7 +120,8 @@ return [
             'config' => [
                 'type' => 'input',
                 'size' => 30,
-                'eval' => 'trim,required',
+                'eval' => 'trim',
+                'required' => true,
                 'default' => 'api/v2/',
             ],
         ],
@@ -141,8 +131,14 @@ return [
                 'type' => 'select',
                 'renderType' => 'selectSingle',
                 'items' => [
-                    [Application::ALG_RS256, Application::ALG_RS256],
-                    [Application::ALG_HS256, Application::ALG_HS256],
+                    [
+                        'label' => Application::ALG_RS256,
+                        'value' => Application::ALG_RS256,
+                    ],
+                    [
+                        'label' => Application::ALG_HS256,
+                        'value' => Application::ALG_HS256,
+                    ],
                 ],
                 'default' => Application::ALG_RS256,
             ],

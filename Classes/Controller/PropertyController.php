@@ -6,19 +6,16 @@
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Controller;
 
-use Leuchtfeuer\Auth0\Configuration\Auth0Configuration;
 use Leuchtfeuer\Auth0\Domain\Transfer\EmAuth0Configuration;
 use Leuchtfeuer\Auth0\Factory\ConfigurationFactory;
 use Leuchtfeuer\Auth0\Utility\TcaUtility;
 use Psr\Http\Message\ResponseInterface;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 use TYPO3\CMS\Extbase\Http\ForwardResponse;
-use TYPO3\CMS\Extbase\Mvc\Exception\StopActionException;
 
 class PropertyController extends BackendController
 {
@@ -26,33 +23,34 @@ class PropertyController extends BackendController
     {
         $tcaUtility = new TcaUtility();
         $moduleTemplate = $this->initView();
-        $this->view->assignMultiple([
-            'frontendUserColumns' => $tcaUtility->getColumnsFromTable('fe_users'),
+        $moduleTemplate->assignMultiple([
             'backendUserColumns' => $tcaUtility->getColumnsFromTable('be_users'),
             'extensionConfiguration' => new EmAuth0Configuration(),
-            'yamlConfiguration' => GeneralUtility::makeInstance(Auth0Configuration::class)->load(),
+            'yamlConfiguration' => $this->auth0Configuration->load(),
         ]);
-        $moduleTemplate->setContent($this->view->render());
-
-        return $this->htmlResponse($moduleTemplate->renderContent());
+        return $moduleTemplate->renderResponse('Property/List');
     }
 
     public function newAction(string $table, string $type): ResponseInterface
     {
         $moduleTemplate = $this->initView();
-        $this->addButton('menu.button.cancel', 'list', 'Property', 'actions-close', $moduleTemplate);
-        $this->view->assignMultiple([
+        $this->addButton(
+            'menu.button.cancel',
+            'list',
+            'Property',
+            'actions-close',
+            $moduleTemplate
+        );
+        $moduleTemplate->assignMultiple([
             'table' => $table,
             'type' => $type,
             'properties' => (new TcaUtility())->getUnusedColumnsFromTable($table),
         ]);
-        $moduleTemplate->setContent($this->view->render());
-
-        return $this->htmlResponse($moduleTemplate->renderContent());
+        return $moduleTemplate->renderResponse('Property/New');
     }
 
     /**
-     * @throws StopActionException
+     * @param array<mixed> $property
      */
     public function createAction(array $property, string $table, string $type): ResponseInterface
     {
@@ -62,23 +60,21 @@ class PropertyController extends BackendController
 
         ksort($property);
         $propertyConfiguration = (new ConfigurationFactory())->buildProperty(...array_values($property));
-        $auth0Configuration = GeneralUtility::makeInstance(Auth0Configuration::class);
-        $configuration = $auth0Configuration->load();
+        $configuration = $this->auth0Configuration->load();
         $configuration['properties'][$table][$type][] = $propertyConfiguration;
-        $auth0Configuration->write($configuration);
+        $this->auth0Configuration->write($configuration);
         $this->addFlashMessage($this->getTranslation('message.property.created.text'), $this->getTranslation('message.property.created.title'));
 
         return $this->redirect('list');
     }
 
     /**
-     * @throws StopActionException
+     * @param array<mixed> $property
      */
     public function deleteAction(array $property, string $table, string $type): ResponseInterface
     {
         if ((bool)$property['readOnly'] === false) {
-            $auth0Configuration = GeneralUtility::makeInstance(Auth0Configuration::class);
-            $configuration = $auth0Configuration->load();
+            $configuration = $this->auth0Configuration->load();
 
             foreach ($configuration['properties'][$table][$type] as $key => $configurationProperty) {
                 if ($configurationProperty['databaseField'] === $property['databaseField']) {
@@ -87,7 +83,7 @@ class PropertyController extends BackendController
                 }
             }
 
-            $auth0Configuration->write($configuration);
+            $this->auth0Configuration->write($configuration);
         }
 
         $this->addFlashMessage($this->getTranslation('message.property.deleted.text'), $this->getTranslation('message.property.deleted.title'));
@@ -95,28 +91,34 @@ class PropertyController extends BackendController
         return $this->redirect('list');
     }
 
+    /**
+     * @param array<mixed> $property
+     */
     public function editAction(array $property, string $table, string $type): ResponseInterface
     {
         $moduleTemplate = $this->initView();
-        $this->addButton('menu.button.cancel', 'list', 'Property', 'actions-close', $moduleTemplate);
-        $this->view->assignMultiple([
+        $this->addButton(
+            'menu.button.cancel',
+            'list',
+            'Property',
+            'actions-close',
+            $moduleTemplate
+        );
+        $moduleTemplate->assignMultiple([
             'property' => $property,
             'table' => $table,
             'type' => $type,
             'properties' => (new TcaUtility())->getUnusedColumnsFromTable($table, $property['databaseField']),
         ]);
-        $moduleTemplate->setContent($this->view->render());
-
-        return $this->htmlResponse($moduleTemplate->renderContent());
+        return $moduleTemplate->renderResponse('Property/Edit');
     }
 
     /**
-     * @throws StopActionException
+     * @param array<mixed> $property
      */
     public function updateAction(array $property, string $table, string $type): ResponseInterface
     {
-        $auth0Configuration = GeneralUtility::makeInstance(Auth0Configuration::class);
-        $configuration = $auth0Configuration->load();
+        $configuration = $this->auth0Configuration->load();
 
         foreach ($configuration['properties'][$table][$type] ?? [] as $key => $item) {
             if ($item['databaseField'] === $property['databaseField']) {
@@ -125,7 +127,7 @@ class PropertyController extends BackendController
             }
         }
 
-        $auth0Configuration->write($configuration);
+        $this->auth0Configuration->write($configuration);
         $this->addFlashMessage($this->getTranslation('message.property.updated.text'), $this->getTranslation('message.property.updated.title'));
 
         return $this->redirect('list');

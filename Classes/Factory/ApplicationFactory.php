@@ -6,7 +6,7 @@
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Factory;
@@ -27,7 +27,7 @@ class ApplicationFactory
 
     public const SESSION_PREFIX_FRONTEND = 'FE';
 
-    protected ?Application $application;
+    protected ?Application $application = null;
 
     /**
      * @throws ConfigurationException
@@ -37,6 +37,9 @@ class ApplicationFactory
     {
         $scope = ['openid', 'profile', 'read:current_user'];
         $application = GeneralUtility::makeInstance(ApplicationRepository::class)->findByUid($applicationId);
+        if ($application === null) {
+            throw new \RuntimeException('Application not found: ' . $applicationId);
+        }
 
         // Management API should be used
         if ($application->hasApi()) {

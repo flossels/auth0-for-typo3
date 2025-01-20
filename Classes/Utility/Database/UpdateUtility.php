@@ -8,16 +8,17 @@ declare(strict_types=1);
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Utility\Database;
 
+use Doctrine\DBAL\Exception as DBALException;
 use Leuchtfeuer\Auth0\Configuration\Auth0Configuration;
 use Leuchtfeuer\Auth0\Domain\Repository\UserGroup\AbstractUserGroupRepository;
 use Leuchtfeuer\Auth0\Domain\Repository\UserGroup\BackendUserGroupRepository;
-use Leuchtfeuer\Auth0\Domain\Repository\UserGroup\FrontendUserGroupRepository;
 use Leuchtfeuer\Auth0\Domain\Repository\UserRepository;
+use Leuchtfeuer\Auth0\Domain\Repository\UserRepositoryFactory;
 use Leuchtfeuer\Auth0\Domain\Transfer\EmAuth0Configuration;
 use Leuchtfeuer\Auth0\Utility\ParseFuncUtility;
 use Psr\Log\LoggerAwareInterface;
@@ -29,20 +30,25 @@ class UpdateUtility implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
-    protected string $tableName = '';
-
     protected EmAuth0Configuration $configuration;
 
-    protected $user = [];
+    /**
+     * @var array<mixed>
+     */
+    protected array $yamlConfiguration = [];
 
-    protected $yamlConfiguration = [];
-
-    public function __construct(string $tableName, array $user)
-    {
-        $this->tableName = $tableName;
+    /**
+     * @param array<string, mixed> $user
+     */
+    public function __construct(
+        protected readonly Auth0Configuration $auth0Configuration,
+        protected readonly BackendUserGroupRepository $backendUserGroupRepository,
+        protected readonly UserRepositoryFactory $userRepositoryFactory,
+        protected string $tableName,
+        protected array $user,
+    ) {
         $this->configuration = new EmAuth0Configuration();
-        $this->user = $user;
-        $this->yamlConfiguration = GeneralUtility::makeInstance(Auth0Configuration::class)->load();
+        $this->yamlConfiguration = $this->auth0Configuration->load();
     }
 
     public function updateGroups(): void
@@ -51,7 +57,8 @@ class UpdateUtility implements LoggerAwareInterface
         $this->addDefaultGroup($groupMapping);
 
         if (empty($groupMapping)) {
-            $this->logger->error(sprintf('Cannot update user groups: No role mapping for %s found', $this->tableName));
+            /** @extensionScannerIgnoreLine */
+            $this->logger?->error(sprintf('Cannot update user groups: No role mapping for %s found', $this->tableName));
 
             return;
         }
@@ -65,7 +72,7 @@ class UpdateUtility implements LoggerAwareInterface
 
         // Update user only if necessary
         if ($shouldUpdate === true) {
-            $this->logger->notice('Update user groups.');
+            $this->logger?->notice('Update user groups.');
             $this->performGroupUpdate($groupsToAssign, $isBackendAdmin);
         }
     }
@@ -75,7 +82,8 @@ class UpdateUtility implements LoggerAwareInterface
         $mappingConfiguration = $this->yamlConfiguration['properties'][$this->tableName] ?? null;
 
         if ($mappingConfiguration === null) {
-            $this->logger->error(sprintf('Cannot update user: No mapping configuration for %s found', $this->tableName));
+            /** @extensionScannerIgnoreLine */
+            $this->logger?->error(sprintf('Cannot update user: No mapping configuration for %s found', $this->tableName));
 
             return;
         }
@@ -83,6 +91,10 @@ class UpdateUtility implements LoggerAwareInterface
         $this->performUserUpdate($mappingConfiguration, $reactivateUser);
     }
 
+    /**
+     * @return array<mixed>
+     * @throws DBALException
+     */
     protected function getGroupMappingFromDatabase(): array
     {
         $groupMapping = [];
@@ -91,7 +103,7 @@ class UpdateUtility implements LoggerAwareInterface
         if ($userGroupRepository instanceof AbstractUserGroupRepository) {
             foreach ($userGroupRepository->findAll() as $userGroup) {
                 if (!empty($userGroup['auth0_user_group'])) {
-                    $groupMapping[$userGroup[AbstractUserGroupRepository::USER_GROUP_FIELD]] = $groupMapping[$userGroup[AbstractUserGroupRepository::USER_GROUP_FIELD]] ?? [];
+                    $groupMapping[$userGroup[AbstractUserGroupRepository::USER_GROUP_FIELD]] ??= [];
                     $groupMapping[$userGroup[AbstractUserGroupRepository::USER_GROUP_FIELD]][] = $userGroup['uid'];
                 }
             }
@@ -102,26 +114,19 @@ class UpdateUtility implements LoggerAwareInterface
 
     protected function getUserGroupRepository(): ?AbstractUserGroupRepository
     {
-        switch ($this->tableName) {
-            case 'fe_users':
-                return new FrontendUserGroupRepository();
-
-            case 'be_users':
-                return new BackendUserGroupRepository();
-        }
-
-        return null;
+        return match ($this->tableName) {
+            'be_users' => $this->backendUserGroupRepository,
+            default => null,
+        };
     }
 
+    /**
+     * @param array<mixed> $groupMapping
+     */
     protected function addDefaultGroup(array &$groupMapping): void
     {
-        $key = 'frontend';
-        $userGroupTableName = 'fe_groups';
-
-        if ($this->tableName === 'be_users') {
-            $key = 'backend';
-            $userGroupTableName = 'be_groups';
-        }
+        $key = 'backend';
+        $userGroupTableName = 'be_groups';
 
         $defaultGroup = (int)($this->yamlConfiguration['roles']['default'][$key] ?? 0);
         $userGroup = BackendUtility::getRecord($userGroupTableName, $defaultGroup);
@@ -132,21 +137,25 @@ class UpdateUtility implements LoggerAwareInterface
         }
     }
 
+    /**
+     * @param array<mixed> $groupMapping
+     * @param array<string> $groupsToAssign
+     */
     protected function mapRoles(array $groupMapping, array &$groupsToAssign, bool &$isBeAdmin, bool &$shouldUpdate): void
     {
         $rolesKey = $this->yamlConfiguration['roles']['key'] ?? 'roles';
-        $roles = (array)$this->user['app_metadata'][$rolesKey] ?? [];
+        $roles = (array)($this->user['app_metadata'][$rolesKey] ?? []);
 
         foreach ($roles as $role) {
             if (isset($groupMapping[$role])) {
-                $this->logger->notice(sprintf('Assign group "%s" to user.', $groupMapping[$role]));
+                $this->logger?->notice(sprintf('Assign group "%s" to user.', $groupMapping[$role]));
                 $groupsToAssign = array_merge($groupsToAssign, $groupMapping[$role]);
                 $shouldUpdate = true;
             } elseif (!empty($this->yamlConfiguration['roles']['beAdmin']) && $role === $this->yamlConfiguration['roles']['beAdmin']) {
                 $isBeAdmin = true;
                 $shouldUpdate = true;
             } else {
-                $this->logger->warning(sprintf('No mapping for Auth0 role "%s" found.', $role));
+                $this->logger?->warning(sprintf('No mapping for Auth0 role "%s" found.', $role));
             }
         }
 
@@ -157,13 +166,16 @@ class UpdateUtility implements LoggerAwareInterface
         }
     }
 
+    /**
+     * @param array<string> $groupsToAssign
+     */
     protected function performGroupUpdate(array $groupsToAssign, bool $isBeAdmin): void
     {
         $updates = [];
         $groupsToAssign = array_unique($groupsToAssign);
 
         // Update usergroup in database
-        if (!empty($groupsToAssign)) {
+        if ($groupsToAssign !== []) {
             $updates['usergroup'] = implode(',', $groupsToAssign);
         }
 
@@ -173,14 +185,17 @@ class UpdateUtility implements LoggerAwareInterface
         }
 
         if (!empty($updates)) {
-            $userRepository = GeneralUtility::makeInstance(UserRepository::class, $this->tableName);
+            $userRepository = $this->userRepositoryFactory->create($this->tableName);
             $userRepository->updateUserByAuth0Id($updates, $this->user[$this->configuration->getUserIdentifier()]);
         }
     }
 
+    /**
+     * @param array<mixed> $mappingConfiguration
+     */
     protected function performUserUpdate(array $mappingConfiguration, bool $reactivateUser): void
     {
-        $this->logger->debug(
+        $this->logger?->debug(
             sprintf(
                 '%s: Prepare update for Auth0 user "%s"',
                 $this->tableName,
@@ -189,7 +204,7 @@ class UpdateUtility implements LoggerAwareInterface
         );
 
         $updates = [];
-        $userRepository = GeneralUtility::makeInstance(UserRepository::class, $this->tableName);
+        $userRepository = $this->userRepositoryFactory->create($this->tableName);
 
         $this->mapUserData($updates, $mappingConfiguration);
 
@@ -209,14 +224,11 @@ class UpdateUtility implements LoggerAwareInterface
         $reactivateDeleted = false;
         $reactivateDisabled = false;
 
-        if ($this->tableName === 'fe_users') {
-            $reactivateDeleted = $this->configuration->isReactivateDeletedFrontendUsers();
-            $reactivateDisabled = $this->configuration->isReactivateDisabledFrontendUsers();
-        } elseif ($this->tableName === 'be_users') {
+        if ($this->tableName === 'be_users') {
             $reactivateDeleted = $this->configuration->isReactivateDeletedBackendUsers();
             $reactivateDisabled = $this->configuration->isReactivateDisabledBackendUsers();
         } else {
-            $this->logger->notice('Undefined environment');
+            $this->logger?->notice('Undefined environment');
         }
 
         if ($reactivateDeleted === false) {
@@ -228,6 +240,10 @@ class UpdateUtility implements LoggerAwareInterface
         }
     }
 
+    /**
+     * @param array<mixed> $updates
+     * @param array<mixed> $mappingConfiguration
+     */
     protected function mapUserData(array &$updates, array $mappingConfiguration): void
     {
         $parseFuncUtility = GeneralUtility::makeInstance(ParseFuncUtility::class);

@@ -6,7 +6,7 @@
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Utility;
@@ -16,7 +16,7 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class TcaUtility
 {
-    const EXCLUDE_LIST = [
+    private const EXCLUDE_LIST = [
         'password' => 1,
         'usergroup' => 1,
         'felogin_forgotHash' => 1,
@@ -25,6 +25,9 @@ class TcaUtility
         'auth0_last_application' => 1,
     ];
 
+    /**
+     * @return array<mixed>
+     */
     public function getColumnsFromTable(string $tableName): array
     {
         $columns = [];
@@ -54,6 +57,9 @@ class TcaUtility
         return $columns;
     }
 
+    /**
+     * @return array<mixed>
+     */
     public function getUnusedColumnsFromTable(string $tableName, ?string $exclude = null): array
     {
         $properties = $this->getColumnsFromTable($tableName);
@@ -68,6 +74,9 @@ class TcaUtility
         return $properties;
     }
 
+    /**
+     * @return array<mixed>
+     */
     protected function getColumnsFromConfiguration(string $tableName): array
     {
         $configuration = GeneralUtility::makeInstance(Auth0Configuration::class)->load();

@@ -8,7 +8,7 @@ declare(strict_types=1);
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Domain\Model;
@@ -20,30 +20,15 @@ class Application extends AbstractEntity
     public const ALG_HS256 = 'HS256';
     public const ALG_RS256 = 'RS256';
 
-    /**
-     * @var string
-     */
-    protected $title = '';
+    protected string $title = '';
 
-    /**
-     * @var string
-     */
-    protected $id = '';
+    protected string $id = '';
 
-    /**
-     * @var string
-     */
-    protected $secret = '';
+    protected string $secret = '';
 
-    /**
-     * @var string
-     */
-    protected $domain = '';
+    protected string $domain = '';
 
-    /**
-     * @var string
-     */
-    protected $audience = '';
+    protected string $audience = '';
 
     protected bool $singleLogOut = false;
 
@@ -51,10 +36,7 @@ class Application extends AbstractEntity
 
     protected string $signatureAlgorithm = self::ALG_RS256;
 
-    /**
-     * @var bool
-     */
-    protected $customDomain = false;
+    protected bool $customDomain = false;
 
     public function getTitle(): string
     {
@@ -70,11 +52,13 @@ class Application extends AbstractEntity
 
     public function getClientId(): string
     {
+        /** @extensionScannerIgnoreLine */
         return $this->id;
     }
 
     public function setId(string $id): self
     {
+        /** @extensionScannerIgnoreLine */
         $this->id = $id;
 
         return $this;
@@ -132,7 +116,11 @@ class Application extends AbstractEntity
 
     public function getApiBasePath(): string
     {
-        return sprintf('/%s/', trim(parse_url($this->getAudience(true), PHP_URL_PATH), '/'));
+        $path = parse_url($this->getAudience(true), PHP_URL_PATH);
+        if (!is_string($path)) {
+            throw new \RuntimeException('Audience path must be a string');
+        }
+        return sprintf('/%s/', trim($path, '/'));
     }
 
     public function isSingleLogOut(): bool
@@ -176,6 +164,9 @@ class Application extends AbstractEntity
         return $this;
     }
 
+    /**
+     * @param array{title: string, id: string, secret: string, domain: string, audience: string, single_log_out: bool, signature_algorithm: string|null, api: bool} $data
+     */
     public static function fromArray(array $data): self
     {
         return (new self())

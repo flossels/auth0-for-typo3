@@ -6,51 +6,40 @@
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Controller;
 
+use Leuchtfeuer\Auth0\Configuration\Auth0Configuration;
 use Leuchtfeuer\Auth0\Domain\Repository\ApplicationRepository;
+use Leuchtfeuer\Auth0\Domain\Repository\UserGroup\BackendUserGroupRepository;
 use Psr\Http\Message\ResponseInterface;
 use TYPO3\CMS\Backend\Routing\Exception\RouteNotFoundException;
 use TYPO3\CMS\Backend\Routing\UriBuilder as BackendUriBuilder;
 use TYPO3\CMS\Backend\Template\Components\ButtonBar;
 use TYPO3\CMS\Backend\Template\ModuleTemplate;
 use TYPO3\CMS\Backend\Template\ModuleTemplateFactory;
-use TYPO3\CMS\Core\Imaging\Icon;
 use TYPO3\CMS\Core\Imaging\IconFactory;
+use TYPO3\CMS\Core\Imaging\IconSize;
 use TYPO3\CMS\Core\Localization\LanguageService;
 use TYPO3\CMS\Extbase\Mvc\Controller\ActionController;
-use TYPO3\CMS\Extbase\Mvc\Web\Routing\UriBuilder;
 
 class BackendController extends ActionController
 {
-    protected ApplicationRepository $applicationRepository;
-    protected ModuleTemplateFactory $moduleTemplateFactory;
-    protected IconFactory $iconFactory;
-    protected BackendUriBuilder $backendUriBuilder;
-
     public function __construct(
-        ApplicationRepository $applicationRepository,
-        ModuleTemplateFactory $moduleTemplateFactory,
-        IconFactory $iconFactory,
-        UriBuilder $uriBuilder,
-        BackendUriBuilder $backendUriBuilder
-    ) {
-        $this->applicationRepository = $applicationRepository;
-        $this->moduleTemplateFactory = $moduleTemplateFactory;
-        $this->iconFactory = $iconFactory;
-        $this->uriBuilder = $uriBuilder;
-        $this->backendUriBuilder = $backendUriBuilder;
-    }
+        protected readonly ApplicationRepository $applicationRepository,
+        protected readonly Auth0Configuration $auth0Configuration,
+        protected readonly BackendUserGroupRepository $backendUserGroupRepository,
+        protected readonly ModuleTemplateFactory $moduleTemplateFactory,
+        protected readonly IconFactory $iconFactory,
+        protected readonly BackendUriBuilder $backendUriBuilder
+    ) {}
 
     public function listAction(): ResponseInterface
     {
-        $moduleTemplate = $this->moduleTemplateFactory->create($this->request);
-        // Just an empty view
-        $moduleTemplate->setContent($this->view->render());
-        return $this->htmlResponse($moduleTemplate->renderContent());
+        $moduleTemplate = $this->initView();
+        return $moduleTemplate->renderResponse('Backend/List');
     }
 
     public function initView(): ModuleTemplate
@@ -91,7 +80,7 @@ class BackendController extends ActionController
                 $menu->makeMenuItem()
                     ->setTitle($this->getTranslation($action['label']))
                     ->setHref(
-                        $this->getUriBuilder()->reset()->uriFor(
+                        $this->uriBuilder->reset()->uriFor(
                             $action['action'],
                             [],
                             $action['controller']
@@ -109,19 +98,24 @@ class BackendController extends ActionController
 
         $listButton = $buttonBar->makeLinkButton()
             ->setTitle($this->getTranslation('menu.button.overview'))
-            ->setHref($this->getUriBuilder()->reset()->uriFor('list', [], 'Backend'))
-            ->setIcon($this->iconFactory->getIcon('actions-viewmode-tiles', Icon::SIZE_SMALL));
+            ->setHref($this->uriBuilder->reset()->uriFor('list', [], 'Backend'))
+            ->setIcon($this->iconFactory->getIcon('actions-viewmode-tiles', IconSize::SMALL));
         $buttonBar->addButton($listButton);
     }
 
-    protected function addButton(string $label, string $actionName, string $controllerName, string $icon, ModuleTemplate $moduleTemplate): void
-    {
+    protected function addButton(
+        string $label,
+        string $actionName,
+        string $controllerName,
+        string $icon,
+        ModuleTemplate $moduleTemplate
+    ): void {
         $buttonBar = $moduleTemplate->getDocHeaderComponent()->getButtonBar();
 
         $linkButton = $buttonBar->makeLinkButton()
             ->setTitle($this->getTranslation($label))
-            ->setHref($this->getUriBuilder()->reset()->uriFor($actionName, [], $controllerName))
-            ->setIcon($this->iconFactory->getIcon($icon, Icon::SIZE_SMALL));
+            ->setHref($this->uriBuilder->reset()->uriFor($actionName, [], $controllerName))
+            ->setIcon($this->iconFactory->getIcon($icon, IconSize::SMALL));
 
         $buttonBar->addButton($linkButton, ButtonBar::BUTTON_POSITION_RIGHT);
     }
@@ -143,14 +137,7 @@ class BackendController extends ActionController
         return $encoded ? rawurlencode($uri) : $uri;
     }
 
-    protected function getUriBuilder(): UriBuilder
-    {
-        $this->uriBuilder->setRequest($this->request);
-
-        return $this->uriBuilder;
-    }
-
-    protected function getTranslation($key): string
+    protected function getTranslation(string $key): string
     {
         return $this->getLanguageService()->sL('LLL:EXT:auth0/Resources/Private/Language/locallang_mod.xlf:' . $key);
     }

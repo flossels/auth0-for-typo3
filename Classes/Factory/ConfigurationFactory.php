@@ -6,13 +6,16 @@
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Factory;
 
 class ConfigurationFactory
 {
+    /**
+     * @return array{auth0Property: string, databaseField: string, readOnly: false, processing: string}
+     */
     public function buildProperty(string $auth0Property, string $databaseField, string $processing = 'null'): array
     {
         return [
@@ -23,11 +26,13 @@ class ConfigurationFactory
         ];
     }
 
-    public function buildRoles(string $key, int $defaultFrontendUserGroup, string $adminRole, int $defaultBackendUserGroup): array
+    /**
+     * @return array{default: array{backend: int}, key: string, beAdmin: string}
+     */
+    public function buildRoles(string $key, string $adminRole, int $defaultBackendUserGroup): array
     {
         return [
             'default' => [
-                'frontend' => $defaultFrontendUserGroup,
                 'backend' => $defaultBackendUserGroup,
             ],
             'key' => $key,

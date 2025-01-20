@@ -8,7 +8,7 @@ declare(strict_types=1);
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Domain\Transfer;
@@ -22,31 +22,25 @@ use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class EmAuth0Configuration implements SingletonInterface
 {
-    protected $enableBackendLogin = false;
+    protected bool $enableBackendLogin = false;
 
-    protected $backendConnection = 0;
+    protected int $backendConnection = 0;
 
-    protected $userStoragePage = 0;
+    protected int $userStoragePage = 0;
 
-    protected $reactivateDisabledBackendUsers = false;
+    protected bool $reactivateDisabledBackendUsers = false;
 
-    protected $reactivateDeletedBackendUsers = false;
+    protected bool $reactivateDeletedBackendUsers = false;
 
-    protected $reactivateDisabledFrontendUsers = true;
+    protected bool $softLogout = false;
 
-    protected $reactivateDeletedFrontendUsers = true;
+    protected string $additionalAuthorizeParameters = '';
 
-    protected $softLogout = false;
+    protected string $privateKeyFile = '';
 
-    protected $additionalAuthorizeParameters = '';
+    protected string $publicKeyFile = '';
 
-    protected $enableFrontendLogin = true;
-
-    protected $privateKeyFile = '';
-
-    protected $publicKeyFile = '';
-
-    protected $userIdentifier = 'sub';
+    protected string $userIdentifier = 'sub';
 
     /**
      * @throws ExtensionConfigurationExtensionNotConfiguredException
@@ -61,10 +55,20 @@ class EmAuth0Configuration implements SingletonInterface
         }
     }
 
+    /**
+     * @param array<string, mixed> $configuration
+     */
     protected function setPropertiesFromConfiguration(array $configuration): void
     {
         foreach ($configuration as $key => $value) {
-            if (property_exists(__CLASS__, $key)) {
+            if (property_exists(self::class, $key)) {
+                $value = match (gettype($this->$key)) {
+                    'string' => (string)$value,
+                    'integer' => (int)$value,
+                    'boolean' => (bool)$value,
+                    'array' => (array)$value,
+                    default => $value,
+                };
                 $this->$key = $value;
             }
         }
@@ -72,59 +76,53 @@ class EmAuth0Configuration implements SingletonInterface
 
     public function isEnableBackendLogin(): bool
     {
-        return (bool)$this->enableBackendLogin;
+        return $this->enableBackendLogin;
     }
 
     public function getBackendConnection(): int
     {
-        return (int)$this->backendConnection;
+        return $this->backendConnection;
     }
 
     public function getUserStoragePage(): int
     {
-        return (int)$this->userStoragePage;
+        return $this->userStoragePage;
     }
 
     public function isReactivateDisabledBackendUsers(): bool
     {
-        return (bool)$this->reactivateDisabledBackendUsers;
+        return $this->reactivateDisabledBackendUsers;
     }
 
     public function isReactivateDeletedBackendUsers(): bool
     {
-        return (bool)$this->reactivateDeletedBackendUsers;
-    }
-
-    public function isReactivateDisabledFrontendUsers(): bool
-    {
-        return (bool)$this->reactivateDisabledFrontendUsers;
-    }
-
-    public function isReactivateDeletedFrontendUsers(): bool
-    {
-        return (bool)$this->reactivateDeletedFrontendUsers;
+        return $this->reactivateDeletedBackendUsers;
     }
 
     public function isSoftLogout(): bool
     {
-        return (bool)$this->softLogout;
+        return $this->softLogout;
     }
 
+    /**
+     * @return array<string>
+     */
     public function getAdditionalAuthorizeParameters(): array
     {
         return ParametersUtility::transformUrlParameters($this->additionalAuthorizeParameters);
     }
 
-    public function isEnableFrontendLogin(): bool
-    {
-        return (bool)$this->enableFrontendLogin;
-    }
-
+    /**
+     * @return non-empty-string
+     */
     public function getPrivateKeyFile(): string
     {
         return 'file://' . $this->privateKeyFile;
     }
 
+    /**
+     * @return non-empty-string
+     */
     public function getPublicKeyFile(): string
     {
         return 'file://' . $this->publicKeyFile;

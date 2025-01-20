@@ -8,15 +8,14 @@ declare(strict_types=1);
  * For the full copyright and license information, please read the
  * LICENSE.txt file that was distributed with this source code.
  *
- * Florian Wessels <f.wessels@Leuchtfeuer.com>, Leuchtfeuer Digital Marketing
+ * (c) Leuchtfeuer Digital Marketing <dev@Leuchtfeuer.com>
  */
 
 namespace Leuchtfeuer\Auth0\Command;
 
-use Auth0\SDK\Exception\ArgumentException;
-use Auth0\SDK\Exception\NetworkException;
-use Doctrine\DBAL\DBALException;
-use Doctrine\DBAL\Driver\Exception;
+use Auth0\SDK\Utility\HttpResponse;
+use Doctrine\DBAL\Exception as DBALException;
+use Doctrine\DBAL\ParameterType;
 use GuzzleHttp\Exception\GuzzleException;
 use Leuchtfeuer\Auth0\Domain\Transfer\EmAuth0Configuration;
 use Leuchtfeuer\Auth0\Factory\ApplicationFactory;
@@ -29,23 +28,31 @@ use Symfony\Component\Console\Output\OutputInterface;
 use TYPO3\CMS\Core\Database\ConnectionPool;
 use TYPO3\CMS\Core\Database\Query\QueryBuilder;
 use TYPO3\CMS\Core\Database\Query\Restriction\HiddenRestriction;
-use TYPO3\CMS\Core\Utility\GeneralUtility;
 
 class CleanUpCommand extends Command implements LoggerAwareInterface
 {
     use LoggerAwareTrait;
 
+    /**
+     * @var array<string>
+     */
     protected array $allowedMethods = [
         'disable',
         'delete',
         'deleteIrrevocable',
     ];
 
+    /**
+     * @var array{users: string, sessions: string}
+     */
     protected array $tableNames = [
         'users' => 'be_users',
         'sessions' => 'be_sessions',
     ];
 
+    /**
+     * @var array<array<string, mixed>>
+     */
     protected array $users = [];
 
     protected string $method = '';
@@ -54,18 +61,18 @@ class CleanUpCommand extends Command implements LoggerAwareInterface
 
     protected EmAuth0Configuration $configuration;
 
+    public function __construct(private readonly ConnectionPool $connectionPool, ?string $name = null)
+    {
+        parent::__construct($name);
+    }
+
     protected function configure(): void
     {
         $this->addArgument('method', InputArgument::REQUIRED, '"disable", "delete" or "deleteIrrevocable"');
     }
 
     /**
-     * @param InputInterface $input
-     * @param OutputInterface $output
-     * @throws ArgumentException
-     * @throws NetworkException
      * @throws DBALException
-     * @throws Exception
      */
     public function execute(InputInterface $input, OutputInterface $output): int
     {
@@ -90,7 +97,7 @@ class CleanUpCommand extends Command implements LoggerAwareInterface
         $userCount = $this->updateUsers();
 
         if ($userCount > 0) {
-            $output->writeln(sprintf('<info>Removed %i users from %s</info>', $userCount, $this->tableNames['users']));
+            $output->writeln(sprintf('<info>Removed %d users from %s</info>', $userCount, $this->tableNames['users']));
         } else {
             $output->writeln(sprintf('<info>No users removed for table %s.</info>', $this->tableNames['users']));
         }
@@ -123,7 +130,6 @@ class CleanUpCommand extends Command implements LoggerAwareInterface
     }
 
     /**
-     * @throws Exception
      * @throws DBALException
      */
     protected function setUsers(): bool
@@ -138,14 +144,14 @@ class CleanUpCommand extends Command implements LoggerAwareInterface
             ->select('uid', 'auth0_user_id')
             ->from($this->tableNames['users'])
             ->where($queryBuilder->expr()->neq('auth0_user_id', $queryBuilder->createNamedParameter('')))
-            ->execute()
+            ->executeQuery()
             ->fetchAllAssociative();
 
         return !empty($this->users);
     }
 
     /**
-     * @throws DBALException
+     * @param array<string, mixed> $user
      */
     protected function handleUser(array $user): void
     {
@@ -170,16 +176,16 @@ class CleanUpCommand extends Command implements LoggerAwareInterface
 
         $queryBuilder
             ->where($queryBuilder->expr()->eq('uid', $user['uid']))
-            ->execute();
+            ->executeStatement();
     }
 
     protected function getQueryBuilder(string $type): QueryBuilder
     {
-        return GeneralUtility::makeInstance(ConnectionPool::class)->getQueryBuilderForTable($this->tableNames[$type]);
+        return $this->connectionPool->getQueryBuilderForTable($this->tableNames[$type]);
     }
 
     /**
-     * @throws DBALException
+     * @param array<string, mixed> $user
      */
     protected function clearSessionData(array $user): void
     {
@@ -189,31 +195,30 @@ class CleanUpCommand extends Command implements LoggerAwareInterface
             ->where(
                 $queryBuilder->expr()->eq(
                     'ses_userid',
-                    $queryBuilder->createNamedParameter($user['uid'], \PDO::PARAM_INT)
+                    $queryBuilder->createNamedParameter($user['uid'], ParameterType::INTEGER)
                 )
-            )->execute();
+            )
+            ->executeStatement();
     }
 
-    /**
-     * @return int
-     */
     protected function updateUsers(): int
     {
         $userCount = 0;
         try {
             $auth0 = ApplicationFactory::build($this->configuration->getBackendConnection());
             foreach ($this->users as $user) {
-                $auth0User = $auth0->management()->users()->get($user['auth0_user_id']);
+                $auth0UserResponse = $auth0->management()->users()->get($user['auth0_user_id']);
+                /* TODO: $auth0UserResponse is not an array but ResponseInterface. See https://github.com/auth0/auth0-PHP/blob/8.13.0/docs/Management.md#users . Not sure, if the following solution works. */
+                /** @var array<string, mixed> $auth0User */
+                $auth0User = HttpResponse::decodeContent($auth0UserResponse);
                 if (isset($auth0User['statusCode']) && $auth0User['statusCode'] === 404) {
                     $this->handleUser($user);
                     $this->clearSessionData($user);
                     $userCount++;
                 }
             }
-        } catch (\Exception $exception) {
-            $this->logger->critical($exception->getMessage());
-        } catch (GuzzleException $exception) {
-            $this->logger->critical($exception->getMessage());
+        } catch (\Exception|GuzzleException $exception) {
+            $this->logger?->critical($exception->getMessage());
         }
 
         return $userCount;
